@@ -2525,7 +2525,7 @@ export const PolitikumGame = {
               const owners = (G.players || []).filter((pp: any) => String(pp.id) !== String(p.id));
               let picked = false;
               for (const owner of owners) {
-                const j = (owner.coalition || []).findIndex((c: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded && Array.isArray(c.tags) && c.tags.includes('faction:liberal'));
+                const j = (owner.coalition || []).findIndex((c: any) => c.type === 'persona' && !['persona_31', 'persona_9'].includes(baseId(String(c.id))) && !c.shielded && Array.isArray(c.tags) && c.tags.includes('faction:liberal'));
                 if (j < 0) continue;
                 const [drop] = owner.coalition.splice(j, 1);
                 if (drop) {
