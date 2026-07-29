@@ -544,8 +544,8 @@ function maybeEndAfterRound(G: PolitikumState, ctx: any, events: any) {
 }
 
 const nowMs = () => Date.now();
-const RESPONSE_ACTION_MS = 15000; // time for humans to react with action_6/action_14
-const RESPONSE_PERSONA_MS = 8000; // time for humans to react with action_8 / persona swaps
+const RESPONSE_ACTION_MS = 5000; // compact solo response window for action_6/action_14
+const RESPONSE_PERSONA_MS = 5000; // compact solo response window for action_8 / persona swaps
 const MAX_COALITION = 7;
 
 function responseExpired(G: PolitikumState) {

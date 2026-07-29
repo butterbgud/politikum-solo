@@ -36,6 +36,7 @@ export default function App() {
   const [bots, setBots] = useState(2);
   const [client, setClient] = useState(null);
   const [state, setState] = useState(null);
+  const [clock, setClock] = useState(Date.now());
   const clientRef = useRef(null);
 
   const start = () => {
@@ -61,17 +62,24 @@ export default function App() {
     return () => clearInterval(timer);
   }, [client, G, active]);
 
-  // The network UI used a constantly running tick to expire response windows.
-  // In the solo client there are no remote responders, so close the window quickly
-  // and let the deferred ability/turn continue instead of making the player wait.
+  // Keep a visible five-second response window for the three reaction cards.
+  // The original MP client delegated this clock to the network UI.
   useEffect(() => {
     if (!client || !G?.response || G.gameOver) return undefined;
-    const timer = setTimeout(() => client.moves.skipResponseWindow(), 650);
-    return () => clearTimeout(timer);
+    const tick = setInterval(() => setClock(Date.now()), 100);
+    const left = Math.max(0, Number(G.response.expiresAtMs || 0) - Date.now());
+    const close = setTimeout(() => client.moves.skipResponseWindow(), left + 40);
+    return () => { clearInterval(tick); clearTimeout(close); };
   }, [client, G?.response, G?.gameOver]);
 
   const play = (card) => {
-    if (!client || !active || G.pending || G.response) return;
+    if (!client || G.pending) return;
+    const bid = baseId(card.id);
+    if (G.response) {
+      if (['action_6', 'action_8', 'action_14'].includes(bid)) client.moves.playAction(card.id);
+      return;
+    }
+    if (!active) return;
     if (card.type === 'persona') {
       const target = baseId(card.id) === 'persona_9' ? G.players.find((p) => p.id !== '0' && p.active)?.id : undefined;
       client.moves.playPersona(card.id, undefined, 'right', target);
@@ -141,15 +149,18 @@ export default function App() {
 
   if (!G) return <main className="welcome"><div>Загрузка колоды…</div></main>;
   const winner = G.gameOver ? [...G.players].filter((p) => p.active).sort((a, b) => score(b) - score(a))[0] : null;
+  const responseSeconds = G.response ? Math.max(0, Math.ceil((Number(G.response.expiresAtMs || 0) - clock) / 1000)) : 0;
+  const responseCards = new Set(G.response?.kind === 'cancel_action' ? ['action_6', 'action_14'] : G.response?.kind === 'cancel_persona' ? ['action_8'] : []);
   return <main className="app">
     <header><div><p>POLITIKUM · SOLO</p><h1>Политический салон</h1></div><div className="turn"><b>{active ? 'Ваш ход' : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Бот'} думает`}</b><small>{G.deck.length} карт в колоде</small></div><button onClick={start}>Новая игра</button></header>
     {G.pending && <div className="prompt">{pendingText(G.pending)}</div>}
+    {G.response && <div className="prompt response">Ответ: {responseSeconds}с · сыграйте {G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.</div>}
     <section className="table">
       <aside className="log"><b>Хроника</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{line}</small>)}</aside>
       <section className="coalitions">{G.players.filter((p) => p.active).map((player) => <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? 'Вы' : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{player.coalition.map((card) => <Card card={card} key={card.id} onClick={() => resolveClick(player, card)} />)}</div></article>)}</section>
-      <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>Взять карту</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>Конец хода</button>{G.pending && String(G.pending.playerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>Разрешить выбор</button>}<small>{G.response ? 'Окно ответа: ждём…' : 'Сыграйте карту после взятия.'}</small></aside>
+      <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>Взять карту</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>Конец хода</button>{G.pending && String(G.pending.playerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>Разрешить выбор</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : 'Сыграйте карту после взятия.'}</small></aside>
     </section>
-    <section className="hand"><div><b>Ваша рука</b><small>{me?.hand?.length || 0} карт</small></div><div className="fan">{me?.hand?.map((card) => <Card card={card} key={card.id} dim={!active || !!G.pending || !!G.response} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} />)}</div></section>
+    <section className="hand"><div><b>Ваша рука</b><small>{me?.hand?.length || 0} карт</small></div><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} />; })}</div></section>
     {winner && <div className="ending"><div><p>Партия окончена</p><h2>{winner.id === '0' ? 'Вы победили' : `${winner.name} побеждает`}</h2><strong>{score(winner)} VP</strong><button onClick={start}>Ещё одну</button></div></div>}
   </main>;
 }
