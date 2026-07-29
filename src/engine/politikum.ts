@@ -1671,10 +1671,13 @@ export const PolitikumGame = {
       if (target.shielded) return INVALID_MOVE;
 
       const want = Math.max(0, Math.min(3, Number(n ?? 3)));
-      const avail = Math.max(0, Number(target.vpDelta || 0));
+      const avail = Number((target as any).plusTokens ?? Math.max(0, Number(target.vpDelta || 0)));
       const take = Math.min(want, avail);
       if (take) {
-        applyTokenDelta(G, target, -take);
+        const minus = Number((target as any).minusTokens ?? Math.max(0, -Number(target.vpDelta || 0)));
+        (target as any).plusTokens = avail - take;
+        (target as any).minusTokens = minus;
+        target.vpDelta = (avail - take) - minus;
         applyTokenDelta(G, self, take);
       }
       recalcPassives(G);
@@ -2653,10 +2656,13 @@ export const PolitikumGame = {
                 }
                 if (target) {
                   const want = 3;
-                  const avail = Math.max(0, Number(target.vpDelta || 0));
+                  const avail = Number((target as any).plusTokens ?? Math.max(0, Number(target.vpDelta || 0)));
                   const take = Math.min(want, avail);
                   if (take) {
-                    applyTokenDelta(G, target, -take);
+                    const minus = Number((target as any).minusTokens ?? Math.max(0, -Number(target.vpDelta || 0)));
+                    (target as any).plusTokens = avail - take;
+                    (target as any).minusTokens = minus;
+                    target.vpDelta = (avail - take) - minus;
                     applyTokenDelta(G, self, take);
                   }
                   recalcPassives(G);
