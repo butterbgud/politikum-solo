@@ -13,7 +13,7 @@ const UI = {
 const cardImage = (card, language) => language === 'en' ? card.img?.replace('/cards/', '/cards/eng/') : card.img;
 function englishLog(line) {
   const cardTitles = [
-    ['ЭКОКРЕДИТЫ', 'EcoCredits'], ['Экокредиты', 'EcoCredits'], ['Сладкий Подарок', 'Sweet Gift'], ['Грант Госдепа', 'State Department Grant'], ['Перевод в Криптоколонию', 'Transfer to Crypto-Colony'], ['Перевод в криптоколонию', 'Transfer to Crypto-Colony'], ['Тайный Удвоитель', 'Secret Doubler'], ['тайный удвоитель', 'secret doubler'], ['Набег единорогов', 'Unicorn Raid'], ['Срач в твиттере: Секс скандал', 'Twitter Squabble: Sex Scandal'], ['Срач в твиттере - русский флаг', 'Twitter Squabble: Russian Flag'], ['Политический [РОСКОМНАДЗОР]', 'Political [REDACTED]'],
+    ['ЭКОКРЕДИТЫ', 'EcoCredits'], ['Экокредиты', 'EcoCredits'], ['Сладкий Подарок', 'Sweet Gift'], ['Грант Госдепа', 'State Department Grant'], ['Перевод в Криптоколонию', 'Transfer to Crypto-Colony'], ['Перевод в криптоколонию', 'Transfer to Crypto-Colony'], ['Тайный Удвоитель', 'Secret Doubler'], ['тайный удвоитель', 'secret doubler'], ['Набег единорогов', 'Unicorn Raid'], ['Срач в Твиттере: Секс скандал', 'Twitter Squabble: Sex Scandal'], ['Срач в твиттере: Секс скандал', 'Twitter Squabble: Sex Scandal'], ['Срач в твиттере:Секс скандал', 'Twitter Squabble: Sex Scandal'], ['Срач в твиттере - русский флаг', 'Twitter Squabble: Russian Flag'], ['Черный лебедь', 'Black Swan'], ['ЧЕРНЫЙ ЛЕБЕДЬ', 'Black Swan'], ['Политический [РОСКОМНАДЗОР]', 'Political [REDACTED]'], ['политический [РОСКОМНАДЗОР]', 'Political [REDACTED]'],
     ['event_12a', 'Unicorn Raid'], ['event_12b', 'Twitter Squabble: Sex Scandal'], ['event_12c', 'Twitter Squabble: Russian Flag'], ['event_10', 'Transfer to Crypto-Colony'], ['event_11', 'Secret Doubler'], ['event_15', 'Black Swan'], ['event_16', 'Political [REDACTED]'], ['event_1', 'EcoCredits'], ['event_2', 'Sweet Gift'], ['event_3', 'State Department Grant'],
     ['Умри ты сегодня а я завтра', 'You Die Today, I Tomorrow'], ['культура политики в восточной европе', 'Political Culture in Eastern Europe'], ['Вывод во внешний контур', 'External Circuit'], ['Волонтёрство', 'Volunteering'], ['Работа на Кремль', 'Working for the Kremlin'], ['Ася Несоевая', 'Asya Nesoevaya'], ['Белое пальто', 'White Coat'], ['ИНОАГЕНТ', 'Foreign Agent'], ['воскресить политический труп', 'Raise a Political Corpse'],
   ];
@@ -36,6 +36,35 @@ function englishLog(line) {
     .replace(/поставьте (\d+) жетон\(ов\) \(\+1\) на свою коалицию\./gi, 'place $1 +1 tokens in your coalition.')
     .replace(/распредилил четыре \+1 токена/gi, 'distributed four +1 tokens')
     .replace(/некуда ставить жетоны \(пропуск\)/gi, 'no token target (skipped)');
+  // Event resolvers emit several complete Russian sentences. Translate them as
+  // sentences before the word-level fallback so English never degrades into
+  // transliteration when a less common event branch fires.
+  translated = translated
+    .replace(/^(.+) вытянул Black Swan, все карты из рук перемешались и раздались обратно$/u, '$1 drew Black Swan: all hands were shuffled and redealt.')
+    .replace(/^(.+) EVENT Black Swan: все руки перемешались и раздали заново\.$/u, '$1 drew Black Swan: all hands were shuffled and redealt.')
+    .replace(/^(.+) попался "(.+)"$/u, '$1 drew "$2".')
+    .replace(/^(.+) попался secret doubler!$/iu, '$1 drew Secret Doubler!')
+    .replace(/^(.+) берёт карту в результате secret doubler$/iu, '$1 draws a card from Secret Doubler.')
+    .replace(/^Вы взяли одну карту после Unicorn Raid$/u, 'You drew one card after Unicorn Raid.')
+    .replace(/^(.+) взял карту из-за Twitter Squabble\.$/u, '$1 drew a card because of Twitter Squabble.')
+    .replace(/^(.+) взял карту из (.+)\.$/u, '$1 drew a card from $2.')
+    .replace(/^(.+) как жаль что EcoCredits некуда ставить!$/u, '$1 drew EcoCredits, but had no resident to receive tokens.')
+    .replace(/^(.+) не кому было отдать госдеповские гранты!$/u, '$1 drew State Department Grant, but had no resident to receive tokens.')
+    .replace(/^(.+) попался Sweet Gift: поставьте 2 жетона \(\+1\) на свою коалицию\.$/u, '$1 drew Sweet Gift: place 2 +1 tokens in your coalition.')
+    .replace(/^(.+) State Department Grant: поставьте 5 жетон\(ов\) \(\+1\) на свою коалицию\.$/u, '$1 drew State Department Grant: place 5 +1 tokens in your coalition.')
+    .replace(/^(.+): (\d+) персонаж\(ей\) (либерала|ФБК) получает -1, затем вы берёте карту\.$/u, (_, title, count, faction) => `${title}: ${count} ${faction === 'либерала' ? 'Liberal' : 'FBK'} resident(s) get −1, then you draw a card.`)
+    .replace(/^Вам выпал Unicorn Raid, но в игре нет никого из ФБК, тем ни менее 1 карта ваша\.$/u, 'You drew Unicorn Raid: no FBK residents are in play, but you still draw 1 card.')
+    .replace(/^(.+): нет персонажей (.+), но карту всё равно берёте\.$/u, '$1: no matching residents are in play, but you still draw a card.')
+    .replace(/^(.+): (.+) сбросил 1 карту с руки\.$/u, '$1: $2 discarded 1 card from hand.')
+    .replace(/^(.+): остальные игроки должны сбросить 1 карту\.$/u, '$1: all other players must discard 1 card.')
+    .replace(/^Political \[REDACTED\] ушел в отбой никого не сбросив\.$/u, 'Political [REDACTED] fizzled: no resident was discarded.')
+    .replace(/^(.+) Political \[REDACTED\]: нечего сбрасывать \(все персоны защищены\/неподвижны\)\.$/u, '$1: Political [REDACTED] has no eligible resident to discard.')
+    .replace(/^(.+) Event Political \[REDACTED\]: сбросьте 1 персону из коалиции, затем возьмите 1 карту\.$/u, '$1 drew Political [REDACTED]: discard 1 resident from your coalition, then draw 1 card.')
+    .replace(/^(.+) сбросил (.+) из своей коалиции из-за события Political \[REDACTED\]\.$/u, '$1 discarded $2 from their coalition due to Political [REDACTED].')
+    .replace(/^(.+) (вытянул|взял) (.+), после Political \[REDACTED\]\.$/u, '$1 drew $3 after Political [REDACTED].')
+    .replace(/^(.+) (вытянул|взял) (.+) \(из "(.+)"\)$/u, '$1 drew $3 from "$4".')
+    .replace(/^Зато взяли карту\.$/u, 'They drew a card afterward.')
+    .replace(/^(.+) вытянул (.+)$/u, '$1 drew $2.');
   translated = translated
     .replace(/^(.+) \((.+)\): левых на поле нет\.$/u, '$1 ($2): no left-wing residents are in play.')
     .replace(/^Ни одного либерала на всю игру\. Это провал!$/u, 'There are no Liberals in play.')
