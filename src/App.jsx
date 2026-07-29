@@ -56,10 +56,19 @@ export default function App() {
   const active = String(ctx?.currentPlayer) === '0';
 
   useEffect(() => {
-    if (!client || !G || active || G.gameOver || G.pending || G.response) return undefined;
+    if (!client || !G || active || G.gameOver || G.response) return undefined;
     const timer = setInterval(() => client.moves.tickBot(), 700);
     return () => clearInterval(timer);
   }, [client, G, active]);
+
+  // The network UI used a constantly running tick to expire response windows.
+  // In the solo client there are no remote responders, so close the window quickly
+  // and let the deferred ability/turn continue instead of making the player wait.
+  useEffect(() => {
+    if (!client || !G?.response || G.gameOver) return undefined;
+    const timer = setTimeout(() => client.moves.skipResponseWindow(), 650);
+    return () => clearTimeout(timer);
+  }, [client, G?.response, G?.gameOver]);
 
   const play = (card) => {
     if (!client || !active || G.pending || G.response) return;
