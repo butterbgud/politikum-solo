@@ -45,7 +45,7 @@ function Card({ card, language, onClick, onPreview, dim = false }) {
 
 function pendingText(pending, language) {
   const copy = language === 'en' ? {
-    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in an opponent coalition.', action_7_block_persona: 'Choose a resident to block.', action_13_shield_persona: 'Choose a resident to protect.', action_17_choose_opponent_persona: 'Choose an opponent resident.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
+    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in an opponent coalition.', action_17_choose_opponent_persona: 'Choose an opponent resident.', action_18_pick_persona_from_discard: 'Choose a discarded resident to return to your hand.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
   } : {
     place_tokens_plus_vp: 'Выберите персонажа в своей коалиции для жетонов.',
     action_4_discard: 'Выберите карту из своей коалиции для сброса.',
@@ -53,6 +53,7 @@ function pendingText(pending, language) {
     action_7_block_persona: 'Выберите персонажа для блокировки.',
     action_13_shield_persona: 'Выберите персонажа для защиты.',
     action_17_choose_opponent_persona: 'Выберите персонажа соперника.',
+    action_18_pick_persona_from_discard: 'Выберите персонажа из сброса, чтобы вернуть его в руку.',
     persona_5_pick_liberal: 'Певчих: выберите либерала соперника без защиты «Белого халата».',
     persona_21_pick_target_invert: 'Выберите персонажа: его жетоны поменяются местами.',
     persona_26_pick_red_nationalist: 'Выберите красного националиста.',
@@ -167,7 +168,7 @@ export default function App() {
 
   const resolveClick = (owner, card) => {
     const pending = G?.pending;
-    if (!client || !pending || String(pending.playerId) !== '0') return;
+    if (!client || !pending || String(pending.playerId ?? pending.attackerId) !== '0') return;
     const id = card.id;
     if (pending.kind === 'place_tokens_plus_vp' && owner.id === '0') client.moves.applyPendingToken(id);
     else if (pending.kind === 'action_4_discard' && owner.id === '0') client.moves.discardFromCoalition(id);
@@ -184,7 +185,7 @@ export default function App() {
 
   const resolveFirstChoice = () => {
     const pending = G?.pending;
-    if (!client || !pending || String(pending.playerId) !== '0') return;
+    if (!client || !pending || String(pending.playerId ?? pending.attackerId) !== '0') return;
     const own = G.players.find((player) => player.id === '0');
     const opponent = G.players.find((player) => player.id !== '0' && player.active);
     const anyCoalition = G.players.flatMap((player) => (player.coalition || []).map((card) => ({ player, card })));
@@ -242,8 +243,9 @@ export default function App() {
         const visibleCards = selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : selectingAction9 ? player.coalition.filter((card) => isAction9Target(G.pending, player, card)) : player.coalition;
         return <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? ui.you : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{visibleCards.map((card) => <Card card={card} language={language} key={card.id} onClick={() => resolveClick(player, card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></article>;
       })}</section>
-      <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>{ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button>{G.pending && String(G.pending.playerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>{ui.auto}</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : ui.playAfterDraw}</small></aside>
+      <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>{ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button>{G.pending && String(G.pending.playerId ?? G.pending.attackerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>{ui.auto}</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : ui.playAfterDraw}</small></aside>
     </section>
+    {G.pending?.kind === 'action_18_pick_persona_from_discard' && String(G.pending.attackerId) === '0' && <section className="discard-picker"><b>{language === 'en' ? 'Choose a discarded resident' : 'Выберите персонажа из сброса'}</b><div className="fan">{G.discard.filter((card) => card.type === 'persona').map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.pickPersonaFromDiscardForAction18(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section>}
     <section className="hand"><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} language={language} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div></section>
     {preview && <div className="card-preview" onClick={() => setPreview(null)}><div className="preview-card" onClick={(event) => event.stopPropagation()}><img src={cardImage(preview.card, language)} alt={preview.card.name || preview.card.id} /><button onClick={() => { preview.action?.(); setPreview(null); }}>{ui.choose}</button><small>{ui.close}</small></div></div>}
     {winner && <div className="ending"><div><p>{ui.ended}</p><h2>{winner.id === '0' ? ui.won : `${winner.name} ${ui.wins}`}</h2><strong>{score(winner)} VP</strong><ScoreChart history={G.history} players={G.players.filter((player) => player.active)} /><button onClick={start}>{ui.again}</button></div></div>}
