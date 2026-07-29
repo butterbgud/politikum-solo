@@ -14,6 +14,7 @@ const cardImage = (card, language) => language === 'en' ? card.img?.replace('/ca
 function englishLog(line) {
   const cardTitles = [
     ['ЭКОКРЕДИТЫ', 'EcoCredits'], ['Экокредиты', 'EcoCredits'], ['Сладкий Подарок', 'Sweet Gift'], ['Грант Госдепа', 'State Department Grant'], ['Перевод в Криптоколонию', 'Transfer to Crypto-Colony'], ['Перевод в криптоколонию', 'Transfer to Crypto-Colony'], ['Тайный Удвоитель', 'Secret Doubler'], ['тайный удвоитель', 'secret doubler'], ['Набег единорогов', 'Unicorn Raid'], ['Срач в твиттере: Секс скандал', 'Twitter Squabble: Sex Scandal'], ['Срач в твиттере - русский флаг', 'Twitter Squabble: Russian Flag'], ['Политический [РОСКОМНАДЗОР]', 'Political [REDACTED]'],
+    ['event_12a', 'Unicorn Raid'], ['event_12b', 'Twitter Squabble: Sex Scandal'], ['event_12c', 'Twitter Squabble: Russian Flag'], ['event_10', 'Transfer to Crypto-Colony'], ['event_11', 'Secret Doubler'], ['event_15', 'Black Swan'], ['event_16', 'Political [REDACTED]'], ['event_1', 'EcoCredits'], ['event_2', 'Sweet Gift'], ['event_3', 'State Department Grant'],
     ['Умри ты сегодня а я завтра', 'You Die Today, I Tomorrow'], ['культура политики в восточной европе', 'Political Culture in Eastern Europe'], ['Вывод во внешний контур', 'External Circuit'], ['Волонтёрство', 'Volunteering'], ['Работа на Кремль', 'Working for the Kremlin'], ['Ася Несоевая', 'Asya Nesoevaya'], ['Белое пальто', 'White Coat'], ['ИНОАГЕНТ', 'Foreign Agent'], ['воскресить политический труп', 'Raise a Political Corpse'],
   ];
   const replacements = [
@@ -28,6 +29,7 @@ function englishLog(line) {
   ];
   let translated = cardTitles.reduce((text, [from, to]) => text.replaceAll(from, to), String(line));
   translated = translated
+    .replace(/^Вы Событие - (.+): некуда ставить жетоны \(пропуск\)\.?$/u, 'You drew "$1": no token target (skipped).')
     .replace(/поставьте (\d+) жетон\(ов\) \(\+1\) на свою коалицию\./gi, 'place $1 +1 tokens in your coalition.')
     .replace(/распредилил четыре \+1 токена/gi, 'distributed four +1 tokens')
     .replace(/некуда ставить жетоны \(пропуск\)/gi, 'no token target (skipped)');
