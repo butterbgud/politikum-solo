@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Client } from 'boardgame.io/client';
 import { PolitikumGame } from './engine/game.js';
+import { POLITIKUM_CARDS_LIST } from './engine/politikum/cards.js';
 
 const BOT_NAMES = ['Гертруда', 'Ульрих', 'Ингеборга', 'Тибальт'];
 const baseId = (id) => String(id || '').split('#')[0];
@@ -76,6 +77,10 @@ function englishLog(line) {
     .replace(/^(.+) \((.+)\): выберите персону в своей коалиции, чтобы вернуть в руку\.$/u, '$1 ($2): choose a resident in your coalition to return to hand.')
     .replace(/^(.+) \(persona_37\): нет цели для подкупа\.$/u, '$1 (Persona 37): no resident can be bribed.')
     .replace(/^(.+) \((.+)\): угадайте верхнюю карту колоды\.$/u, '$1 ($2): guess the top card of the deck.')
+    .replace(/^(.+) пропустил гадание\.$/u, '$1 skipped Milov’s prediction.')
+    .replace(/^(.+) загадал (.+), но в колоде больше нет персон\.$/u, '$1 named $2, but no personas remain in the deck.')
+    .replace(/^(.+) загадал (.+)\. Следующая персона в колоде \((\d+) пропущено\): (.+)\.$/u, '$1 named $2. The next persona in the deck (after $3 non-persona card(s)) is $4.')
+    .replace(/^(.+): угадал — мгновенная победа для (.+)\.$/u, '$1 guessed correctly — instant victory for $2!')
     .replace(/^(.+) \((.+)\) высосал (\d+) × \+1 у правых\.$/u, '$1 ($2) drained $3 +1 tokens from right-wing residents.')
     .replace(/^(.+) \((.+)\) пассивка: получает \+1 когда кого-то обвинили в работе на кремль\.$/u, '$1 ($2) gains +1 whenever someone is accused of Working for the Kremlin.')
     .replace(/^(.+) \((.+)\) усилил (\d+) либерал\(ов\) в своей коалиции \(\+1\)\.$/u, '$1 ($2) gave +1 to $3 Liberal resident(s) in their coalition.')
@@ -110,7 +115,7 @@ function Card({ card, language, onClick, onPreview, dim = false }) {
 
 function pendingText(pending, language) {
   const copy = language === 'en' ? {
-    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in an opponent coalition.', action_17_choose_opponent_persona: 'Choose an opponent resident.', action_18_pick_persona_from_discard: 'Choose a discarded resident to return to your hand.', persona_3_choice: 'SVTV: discard a displayed left-wing resident, or use the SVTV panel to remove all their +1 tokens.', persona_23_choose_self_inflict_draw: 'Persona 23: choose −1, −2, or −3 VP tokens, then draw that many cards.', persona_33_choose_faction: 'Sobchak: choose a faction. She gains +1 for each resident of that faction in your coalition, including herself.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
+    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in an opponent coalition.', action_17_choose_opponent_persona: 'Choose an opponent resident.', action_18_pick_persona_from_discard: 'Choose a discarded resident to return to your hand.', persona_3_choice: 'SVTV: discard a displayed left-wing resident, or use the SVTV panel to remove all their +1 tokens.', persona_23_choose_self_inflict_draw: 'Persona 23: choose −1, −2, or −3 VP tokens, then draw that many cards.', persona_33_choose_faction: 'Sobchak: choose a faction. She gains +1 for each resident of that faction in your coalition, including herself.', persona_34_guess_topdeck: 'Milov: name the next persona in the deck for an immediate win.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
   } : {
     place_tokens_plus_vp: 'Выберите персонажа в своей коалиции для жетонов.',
     action_4_discard: 'Выберите карту из своей коалиции для сброса.',
@@ -122,6 +127,7 @@ function pendingText(pending, language) {
     persona_3_choice: 'SVTV: сбросьте показанного левого персонажа или используйте панель SVTV, чтобы снять со всех левых +1 жетоны.',
     persona_23_choose_self_inflict_draw: 'Персона 23: выберите −1, −2 или −3 жетона VP и возьмите столько же карт.',
     persona_33_choose_faction: 'Собчак: выберите фракцию. Она получит +1 за каждого персонажа этой фракции в вашей коалиции, включая себя.',
+    persona_34_guess_topdeck: 'Милов: назовите следующего персонажа в колоде для мгновенной победы.',
     persona_5_pick_liberal: 'Певчих: выберите либерала соперника без защиты «Белого халата».',
     persona_21_pick_target_invert: 'Выберите персонажа: его жетоны поменяются местами.',
     persona_26_pick_red_nationalist: 'Выберите красного националиста.',
@@ -150,6 +156,19 @@ function isAction9Target(pending, owner, card) {
 
 function isSvtvTarget(card) {
   return card.type === 'persona' && !card.shielded && card.tags?.includes('faction:leftwing');
+}
+
+function milovChoices(G) {
+  const me = G?.players?.find((player) => player.id === '0');
+  if (!me) return [];
+  const unavailable = new Set([
+    ...(G.discard || []),
+    ...(G.players || []).flatMap((player) => player.coalition || []),
+    ...(me.hand || []),
+  ].filter((card) => card.type === 'persona').map((card) => baseId(card.id)));
+  return POLITIKUM_CARDS_LIST
+    .filter((card) => card.type === 'persona' && !unavailable.has(card.id))
+    .map((card) => ({ ...card, name: card.text || card.id, baseVp: card.vp, vp: card.vp, img: `/cards/${card.id}.webp` }));
 }
 
 function ScoreChart({ history = [], players = [] }) {
@@ -312,7 +331,7 @@ export default function App() {
   if (!client) return <main className="welcome"><div><p>Politikum · solo</p><h1>{language === 'en' ? 'Politics without a server' : 'Политика без сервера'}</h1><div className="language"><button className={language === 'ru' ? 'picked' : ''} onClick={() => setLanguage('ru')}>Русский</button><button className={language === 'en' ? 'picked' : ''} onClick={() => setLanguage('en')}>English</button></div><span>{ui.rivals}</span><div className="picker">{[1, 2, 3, 4].map((n) => <button className={bots === n ? 'picked' : ''} onClick={() => setBots(n)} key={n}>{n}</button>)}</div><button className="start" onClick={start}>{ui.start}</button><small>{ui.intro}</small></div></main>;
 
   if (!G) return <main className="welcome"><div>Загрузка колоды…</div></main>;
-  const winner = G.gameOver ? [...G.players].filter((p) => p.active).sort((a, b) => score(b) - score(a))[0] : null;
+  const winner = G.gameOver ? (G.players.find((p) => p.id === String(G.winnerId)) || [...G.players].filter((p) => p.active).sort((a, b) => score(b) - score(a))[0]) : null;
   const responseSeconds = G.response ? Math.max(0, Math.ceil((Number(G.response.expiresAtMs || 0) - clock) / 1000)) : 0;
   const canAnswerResponse = G.response && String(G.response.playedBy) !== '0';
   const responseCards = new Set(canAnswerResponse ? (G.response.kind === 'cancel_action' ? ['action_6', 'action_14'] : G.response.kind === 'cancel_persona' ? ['action_8'] : []) : []);
@@ -336,9 +355,10 @@ export default function App() {
     {G.pending?.kind === 'action_18_pick_persona_from_discard' && String(G.pending.playerId ?? G.pending.attackerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? 'Choose a discarded resident' : 'Выберите персонажа из сброса'}</b><div className="fan">{G.discard.filter((card) => card.type === 'persona' && baseId(card.id) !== 'persona_31').map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.pickPersonaFromDiscardForAction18(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
     {G.pending?.kind === 'persona_23_choose_self_inflict_draw' && String(G.pending.playerId) === '0' && <section className="persona23-choice"><b>{language === 'en' ? 'Persona 23 — choose the cost' : 'Персона 23 — выберите цену'}</b><div>{[1, 2, 3].map((n) => <button key={n} disabled={n > 3 - Number(G.pending.taken || 0)} onClick={() => client.moves.persona23ChooseSelfInflict(n)}>{language === 'en' ? `−${n} VP · draw ${n}` : `−${n} VP · взять ${n}`}</button>)}</div></section>}
     {G.pending?.kind === 'persona_33_choose_faction' && String(G.pending.playerId) === '0' && <section className="sobchak-choice"><b>{language === 'en' ? 'Sobchak — choose a faction' : 'Собчак — выберите фракцию'}</b><small>{language === 'en' ? 'She gains +1 for every matching resident in your coalition, including herself.' : 'Она получит +1 за каждого совпадающего персонажа в вашей коалиции, включая себя.'}</small><div>{[['faction:liberal', language === 'en' ? 'Liberal' : 'Либералы'], ['faction:rightwing', language === 'en' ? 'Right-wing' : 'Правые'], ['faction:leftwing', language === 'en' ? 'Left-wing' : 'Левые'], ['faction:fbk', 'FBK'], ['faction:red_nationalist', language === 'en' ? 'Red Nationalist' : 'Красные националисты'], ['faction:system', language === 'en' ? 'System' : 'Системные']].map(([tag, label]) => <button key={tag} onClick={() => client.moves.persona33ChooseFaction(tag)}>{label}</button>)}</div></section>}
+    {G.pending?.kind === 'persona_34_guess_topdeck' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="milov-choice"><b>{language === 'en' ? 'Milov — name the next persona' : 'Милов — назовите следующую персону'}</b><small>{language === 'en' ? 'Pick any persona that could still be in the deck. A correct prediction wins immediately.' : 'Выберите любого персонажа, который ещё может быть в колоде. Верный ответ — мгновенная победа.'}</small><div className="fan">{milovChoices(G).map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.persona34GuessTopdeck(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
     <section className="hand"><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} language={language} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div></section>
     {bugOpen && <div className="bug-modal" onClick={() => bugStatus !== 'sending' && setBugOpen(false)}><form onSubmit={(event) => { event.preventDefault(); submitBug(); }} onClick={(event) => event.stopPropagation()}><h2>{ui.reportTitle}</h2><p>{ui.reportHint}</p><textarea autoFocus value={bugText} onChange={(event) => setBugText(event.target.value)} placeholder={ui.reportPlaceholder} maxLength="1200" />{bugStatus === 'sent' ? <strong className="bug-success">{ui.sent}</strong> : bugStatus === 'failed' ? <strong className="bug-failed">{ui.failed}</strong> : null}<div><button type="button" onClick={() => setBugOpen(false)} disabled={bugStatus === 'sending'}>{ui.cancel}</button><button className="start" type="submit" disabled={bugStatus === 'sending'}>{ui.send}</button></div></form></div>}
     {preview && <div className="card-preview" onClick={() => setPreview(null)}><div className="preview-card" onClick={(event) => event.stopPropagation()}><img src={cardImage(preview.card, language)} alt={preview.card.name || preview.card.id} /><button onClick={() => { preview.action?.(); setPreview(null); }}>{ui.choose}</button><small>{ui.close}</small></div></div>}
-    {winner && <div className="ending"><div><p>{ui.ended}</p><h2>{winner.id === '0' ? ui.won : `${winner.name} ${ui.wins}`}</h2><strong>{score(winner)} VP</strong><ScoreChart history={G.history} players={G.players.filter((player) => player.active)} /><button onClick={start}>{ui.again}</button></div></div>}
+    {winner && <div className="ending">{String(G.winnerId) === '0' && <div className="fireworks" aria-hidden="true">{Array.from({ length: 30 }, (_, index) => <i key={index} style={{ '--x': `${(index * 37) % 100}%`, '--delay': `${(index % 9) * -0.27}s`, '--dx': `${(index % 7 - 3) * 48}px`, '--dy': `${(index % 5 - 3) * 54}px`, '--hue': index * 31 }} />)}</div>}<div><p>{ui.ended}</p><h2>{winner.id === '0' ? ui.won : `${winner.name} ${ui.wins}`}</h2><strong>{score(winner)} VP</strong><ScoreChart history={G.history} players={G.players.filter((player) => player.active)} /><button onClick={start}>{ui.again}</button></div></div>}
   </main>;
 }

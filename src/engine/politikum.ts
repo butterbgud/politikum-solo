@@ -403,6 +403,22 @@ function personaTitleByBaseId(bid: string) {
   }
 }
 
+function milovEligiblePersonaBaseIds(G: PolitikumState, playerId: string) {
+  const player = (G.players || []).find((p: any) => String(p.id) === String(playerId));
+  if (!player) return new Set<string>();
+  // A named persona cannot be the next card if it is publicly out of the deck,
+  // or already known in Milov's own hand. Opponents' hidden hands remain fair
+  // guesses, exactly as on the physical table.
+  const unavailable = new Set<string>([
+    ...(G.discard || []),
+    ...(G.players || []).flatMap((p: any) => p.coalition || []),
+    ...(player.hand || []),
+  ].filter((c: any) => c?.type === 'persona').map((c: any) => baseId(String(c.id))));
+  return new Set(Object.values(POLITIKUM_CARDS || {})
+    .filter((c: any) => c?.type === 'persona' && !unavailable.has(String(c.id)))
+    .map((c: any) => String(c.id)));
+}
+
 function eventTitle(card: any) {
   const bid = baseId(String(card?.id || ''));
   const raw = String((card as any)?.text || (card as any)?.name || '').trim();
@@ -1971,6 +1987,8 @@ export const PolitikumGame = {
         G.log.push(`${actorWithPersona(me, 'persona_34')} пропустил гадание.`);
         return;
       }
+
+      if (!milovEligiblePersonaBaseIds(G, String(playerID)).has(guess)) return INVALID_MOVE;
 
       // Look ahead for the next PERSONA card in the deck (skip events/actions).
       const deck: any[] = Array.isArray(G.deck) ? G.deck : [];
