@@ -3038,7 +3038,9 @@ export const PolitikumGame = {
                       p.coalition.pop();
                       target.coalition.push(c);
                       G.log.push(`${p.name} добавил ${ruAcc(cardName)} в коалицию ${target.name}`);
-                      return;
+                      // Keep resolving this play: Persona 9 can still be
+                      // cancelled by "Working for the Kremlin" after it enters
+                      // the opponent's coalition.
                     }
                   }
                 } catch {}
