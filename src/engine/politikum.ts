@@ -3055,11 +3055,21 @@ export const PolitikumGame = {
             recalcPassives(G);
 
             // Response window: allow others to cancel this persona with action_8
+            let persona8Swap: any = null;
+            try {
+              const owner = (G.players || []).find((pp: any) => (pp.coalition || []).some((cc: any) => String(cc.id) === String(c.id)));
+              for (const pp of (G.players || [])) {
+                if (String(pp.id) === String(p.id) || String(pp.id) === String(owner?.id)) continue;
+                const hasReadyP8 = (pp.coalition || []).some((x: any) => baseId(String(x.id)) === 'persona_8' && !(x as any)._p8Used);
+                if (hasReadyP8) { persona8Swap = { playerId: String(pp.id), ownerId: String(owner?.id), playedPersonaId: String(c.id) }; break; }
+              }
+            } catch {}
             G.response = {
               kind: 'cancel_persona',
               playedBy: String(p.id),
               personaCard: c,
               expiresAtMs: nowMs() + RESPONSE_PERSONA_MS,
+              persona8Swap,
             };
             // Prevent other bots from immediately overwriting the cancel target.
             (G as any).botPauseUntilMs = nowMs() + RESPONSE_PERSONA_MS;
@@ -3293,6 +3303,9 @@ export const PolitikumGame = {
       if (c.type !== 'persona') return INVALID_MOVE;
 
       const base = baseId(String(c.id));
+
+      // Persona 8 becomes ready again only after it left play and is deployed anew.
+      if (base === 'persona_8') delete (c as any)._p8Used;
 
       // Persona 9 (Ponomarev) must be played into AN OPPONENT coalition.
       const mustTargetOpponentCoalition = base === 'persona_9';

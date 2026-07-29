@@ -235,6 +235,7 @@ export default function App() {
     <header><div><p>POLITIKUM · SOLO</p><h1>{ui.salon}</h1><small className="version">#{BUILD_VERSION}</small></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div><button onClick={start}>{ui.newGame}</button></header>
     {G.pending && <div className="prompt">{pendingText(G.pending, language)}</div>}
     {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · play ${G.response.kind === 'cancel_action' ? 'Volunteering or another action-cancel card' : 'Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · сыграйте ${G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.`}</div>}
+    {G.response?.persona8Swap?.playerId === '0' && <button className="persona8-response" onClick={() => client.moves.persona8SwapWithPlayedPersona()}>{language === 'en' ? `Swap Persona 8 for ${G.response.personaCard?.name || 'the played resident'}` : `Поменять Персону 8 на ${G.response.personaCard?.name || 'сыгранного персонажа'}`}</button>}
     <section className="table">
       <aside className="log"><b>{ui.log}</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{language === 'en' ? englishLog(line) : line}</small>)}</aside>
       <section className="coalitions">{G.players.filter((p) => p.active).map((player) => {
