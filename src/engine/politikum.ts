@@ -265,7 +265,7 @@ function recalcPassives(G: PolitikumState) {
       if (bid === 'persona_33') {
         const chosen = String((c as any).chosenFactionTag || '');
         if (chosen) {
-          const cnt = (coal || []).filter((x: any) => x.type === 'persona' && Array.isArray(x.tags) && x.tags.includes(chosen)).length;
+          const cnt = (coal || []).filter((x: any) => x === c || (x.type === 'persona' && Array.isArray(x.tags) && x.tags.includes(chosen))).length;
           c.passiveVpDelta = cnt;
         }
       }
@@ -1946,7 +1946,7 @@ export const PolitikumGame = {
       if (!tag.startsWith('faction:')) return INVALID_MOVE;
 
       // allow only known factions
-      const KNOWN = new Set(['faction:liberal','faction:rightwing','faction:leftwing','faction:fbk','faction:red_nationalist','faction:system','faction:neutral']);
+      const KNOWN = new Set(['faction:liberal','faction:rightwing','faction:leftwing','faction:fbk','faction:red_nationalist','faction:system']);
       if (!KNOWN.has(tag)) return INVALID_MOVE;
 
       (self as any).chosenFactionTag = tag;
@@ -2701,7 +2701,7 @@ export const PolitikumGame = {
           // persona_33 choose faction: bots auto-pick a faction (avoid wedging the match)
           if (pend.kind === 'persona_33_choose_faction' && String(pend.playerId) === String(p.id)) {
             try {
-              const KNOWN = ['faction:liberal','faction:rightwing','faction:leftwing','faction:fbk','faction:red_nationalist','faction:system','faction:neutral'];
+              const KNOWN = ['faction:liberal','faction:rightwing','faction:leftwing','faction:fbk','faction:red_nationalist','faction:system'];
               const counts: Record<string, number> = {};
               for (const cc of (p.coalition || [])) {
                 if (!cc || cc.type !== 'persona') continue;
