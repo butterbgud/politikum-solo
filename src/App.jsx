@@ -11,6 +11,19 @@ const UI = {
   en: { rivals: 'Opponents', start: 'Start local game', intro: 'Everything lives in this browser. No accounts, APIs, or server.', salon: 'Political Salon', yourTurn: 'Your turn', thinking: 'is thinking', deck: 'cards in deck', newGame: 'New game', log: 'Chronicle', you: 'You', draw: 'Draw card', end: 'End turn', auto: 'Auto-pick', choose: 'Choose', close: 'Tap outside the card to close', ended: 'Game over', won: 'You win', wins: 'wins', again: 'Play again', playAfterDraw: 'Play a card after drawing.' },
 };
 const cardImage = (card, language) => language === 'en' ? card.img?.replace('/cards/', '/cards/eng/') : card.img;
+function englishLog(line) {
+  const replacements = [
+    ['Игра окончена. Победитель:', 'Game over. Winner:'], ['Конец раунда:', 'End of round:'], ['Осталось ходов:', 'Turns remaining:'], ['Старт игры', 'Game started'],
+    ['Работа на Кремль', 'Working for the Kremlin'], ['Белое пальто', 'White Coat'], ['ИНОАГЕНТ', 'Foreign Agent'], ['Вывод во внешний контур', 'External Circuit'], ['Событие', 'Event'],
+    ['Вам выпал', 'You drew'], ['вы вытянули', 'you drew'], ['вытянул', 'drew'], ['взяла', 'drew'], ['взял', 'drew'], ['берет', 'draws'], ['возьмите', 'draw'],
+    ['разыграли', 'played'], ['разыграл', 'played'], ['использовали', 'used'], ['использовал', 'used'], ['использует', 'uses'], ['способность', 'ability'],
+    ['сбросил', 'discarded'], ['сбросьте', 'discard'], ['сбрасывает', 'discards'], ['из коалиции', 'from the coalition'], ['в коалицию', 'to the coalition'],
+    ['выберите', 'choose'], ['персонажа', 'a resident'], ['персону', 'a resident'], ['персоны', 'residents'], ['соперника', 'an opponent'], ['коалиции', 'coalition'],
+    ['жетонов', 'tokens'], ['жетон', 'token'], ['украл', 'stole'], ['защитил', 'protected'], ['заблокировал', 'blocked'], ['отменил', 'cancelled'],
+    ['нет цели', 'no target'], ['нечего сбрасывать', 'nothing to discard'], ['пропуск', 'skipped'], ['ход', 'turn'], ['победитель', 'winner'],
+  ];
+  return replacements.reduce((translated, [from, to]) => translated.replaceAll(from, to), String(line));
+}
 
 function Card({ card, language, onClick, onPreview, dim = false }) {
   if (!card) return null;
@@ -215,9 +228,9 @@ export default function App() {
   return <main className="app">
     <header><div><p>POLITIKUM · SOLO</p><h1>{ui.salon}</h1><small className="version">#{BUILD_VERSION}</small></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div><button onClick={start}>{ui.newGame}</button></header>
     {G.pending && <div className="prompt">{pendingText(G.pending, language)}</div>}
-    {G.response && canAnswerResponse && <div className="prompt response">Ответ: {responseSeconds}с · сыграйте {G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.</div>}
+    {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · play ${G.response.kind === 'cancel_action' ? 'Volunteering or another action-cancel card' : 'Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · сыграйте ${G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.`}</div>}
     <section className="table">
-      <aside className="log"><b>{ui.log}</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{line}</small>)}</aside>
+      <aside className="log"><b>{ui.log}</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{language === 'en' ? englishLog(line) : line}</small>)}</aside>
       <section className="coalitions">{G.players.filter((p) => p.active).map((player) => {
         const selectingPevchih = G.pending?.kind === 'persona_5_pick_liberal' && String(G.pending.playerId) === '0';
         const selectingAction9 = G.pending?.kind === 'action_9_discard_persona' && String(G.pending.playerId) === '0';
