@@ -41,13 +41,15 @@ function englishLog(line) {
 
 function Card({ card, language, onClick, onPreview, dim = false }) {
   if (!card) return null;
+  const plusTokens = Number(card.plusTokens ?? Math.max(0, Number(card.vpDelta || 0)));
+  const minusTokens = Number(card.minusTokens ?? Math.max(0, -Number(card.vpDelta || 0)));
   const inspectOrPlay = () => {
     if (window.matchMedia('(hover: none), (pointer: coarse)').matches) onPreview?.(card, onClick);
     else onClick?.();
   };
   return <button className={`card ${dim ? 'dim' : ''}`} onClick={inspectOrPlay} title={`${card.name || baseId(card.id)} · ${card.vp ?? 0} VP`}>
     <img src={cardImage(card, language)} alt={card.name || card.id} />
-    {card.type === 'persona' && <b className="vp">{card.vp ?? 0}</b>}
+    {card.type === 'persona' && <span className="card-stats"><b className="vp">{card.vp ?? 0}</b>{plusTokens > 0 && <i className="token-plus">+{plusTokens}</i>}{minusTokens > 0 && <i className="token-minus">−{minusTokens}</i>}</span>}
     {card.blockedAbilities && <i className="marker">×</i>}
   </button>;
 }
