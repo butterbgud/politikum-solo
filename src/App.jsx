@@ -12,9 +12,13 @@ const UI = {
 };
 const cardImage = (card, language) => language === 'en' ? card.img?.replace('/cards/', '/cards/eng/') : card.img;
 function englishLog(line) {
+  const cardTitles = [
+    ['ЭКОКРЕДИТЫ', 'EcoCredits'], ['Экокредиты', 'EcoCredits'], ['Сладкий Подарок', 'Sweet Gift'], ['Грант Госдепа', 'State Department Grant'], ['Перевод в Криптоколонию', 'Transfer to Crypto-Colony'], ['Перевод в криптоколонию', 'Transfer to Crypto-Colony'], ['Тайный Удвоитель', 'Secret Doubler'], ['тайный удвоитель', 'secret doubler'], ['Набег единорогов', 'Unicorn Raid'], ['Срач в твиттере: Секс скандал', 'Twitter Squabble: Sex Scandal'], ['Срач в твиттере - русский флаг', 'Twitter Squabble: Russian Flag'], ['Политический [РОСКОМНАДЗОР]', 'Political [REDACTED]'],
+    ['Умри ты сегодня а я завтра', 'You Die Today, I Tomorrow'], ['культура политики в восточной европе', 'Political Culture in Eastern Europe'], ['Вывод во внешний контур', 'External Circuit'], ['Волонтёрство', 'Volunteering'], ['Работа на Кремль', 'Working for the Kremlin'], ['Ася Несоевая', 'Asya Nesoevaya'], ['Белое пальто', 'White Coat'], ['ИНОАГЕНТ', 'Foreign Agent'], ['воскресить политический труп', 'Raise a Political Corpse'],
+  ];
   const replacements = [
     ['Игра окончена. Победитель:', 'Game over. Winner:'], ['Конец раунда:', 'End of round:'], ['Осталось ходов:', 'Turns remaining:'], ['Старт игры', 'Game started'], ['старт игры', 'game started'], ['игроков:', 'players:'],
-    ['Работа на Кремль', 'Working for the Kremlin'], ['Белое пальто', 'White Coat'], ['ИНОАГЕНТ', 'Foreign Agent'], ['Вывод во внешний контур', 'External Circuit'], ['Событие', 'Event'],
+    ['Событие', 'Event'],
     ['Вам выпал', 'You drew'], ['вам выпал', 'you drew'], ['вы вытянули', 'you drew'], ['вытянул', 'drew'], ['взяла', 'drew'], ['взял', 'drew'], ['берет', 'draws'], ['возьмите', 'draw'], ['карту', 'a card'], ['карты', 'cards'], ['карт', 'cards'],
     ['разыграли', 'played'], ['разыграл', 'played'], ['сыграл', 'played'], ['добавил', 'played'], ['использовали', 'used'], ['использовал', 'used'], ['использует', 'uses'], ['способность', 'ability'], ['готов.', 'is ready.'], ['присоединился.', 'joined.'],
     ['сбросил', 'discarded'], ['сбросьте', 'discard'], ['сбрасывает', 'discards'], ['из коалиции', 'from the coalition'], ['в коалицию', 'to the coalition'], ['своей коалиции', 'their coalition'], ['вашей коалиции', 'your coalition'],
@@ -22,7 +26,12 @@ function englishLog(line) {
     ['жетонов', 'tokens'], ['жетон', 'token'], ['украл', 'stole'], ['защитил', 'protected'], ['заблокировал', 'blocked'], ['отменил', 'cancelled'],
     ['нет цели', 'no target'], ['нечего сбрасывать', 'nothing to discard'], ['пропуск', 'skipped'], ['ход', 'turn'], ['победитель', 'winner'], ['защищён', 'protected'], ['защищен', 'protected'], ['коалиция', 'coalition'],
   ];
-  const translated = replacements.reduce((text, [from, to]) => text.replaceAll(from, to), String(line));
+  let translated = cardTitles.reduce((text, [from, to]) => text.replaceAll(from, to), String(line));
+  translated = translated
+    .replace(/поставьте (\d+) жетон\(ов\) \(\+1\) на свою коалицию\./gi, 'place $1 +1 tokens in your coalition.')
+    .replace(/распредилил четыре \+1 токена/gi, 'distributed four +1 tokens')
+    .replace(/некуда ставить жетоны \(пропуск\)/gi, 'no token target (skipped)');
+  translated = replacements.reduce((text, [from, to]) => text.replaceAll(from, to), translated);
   const letters = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
   return translated.replace(/[А-Яа-яЁё]/g, (letter) => {
     const value = letters[letter.toLowerCase()] || '';
