@@ -13,16 +13,21 @@ const UI = {
 const cardImage = (card, language) => language === 'en' ? card.img?.replace('/cards/', '/cards/eng/') : card.img;
 function englishLog(line) {
   const replacements = [
-    ['Игра окончена. Победитель:', 'Game over. Winner:'], ['Конец раунда:', 'End of round:'], ['Осталось ходов:', 'Turns remaining:'], ['Старт игры', 'Game started'],
+    ['Игра окончена. Победитель:', 'Game over. Winner:'], ['Конец раунда:', 'End of round:'], ['Осталось ходов:', 'Turns remaining:'], ['Старт игры', 'Game started'], ['старт игры', 'game started'], ['игроков:', 'players:'],
     ['Работа на Кремль', 'Working for the Kremlin'], ['Белое пальто', 'White Coat'], ['ИНОАГЕНТ', 'Foreign Agent'], ['Вывод во внешний контур', 'External Circuit'], ['Событие', 'Event'],
-    ['Вам выпал', 'You drew'], ['вы вытянули', 'you drew'], ['вытянул', 'drew'], ['взяла', 'drew'], ['взял', 'drew'], ['берет', 'draws'], ['возьмите', 'draw'],
-    ['разыграли', 'played'], ['разыграл', 'played'], ['использовали', 'used'], ['использовал', 'used'], ['использует', 'uses'], ['способность', 'ability'],
-    ['сбросил', 'discarded'], ['сбросьте', 'discard'], ['сбрасывает', 'discards'], ['из коалиции', 'from the coalition'], ['в коалицию', 'to the coalition'],
-    ['выберите', 'choose'], ['персонажа', 'a resident'], ['персону', 'a resident'], ['персоны', 'residents'], ['соперника', 'an opponent'], ['коалиции', 'coalition'],
+    ['Вам выпал', 'You drew'], ['вам выпал', 'you drew'], ['вы вытянули', 'you drew'], ['вытянул', 'drew'], ['взяла', 'drew'], ['взял', 'drew'], ['берет', 'draws'], ['возьмите', 'draw'], ['карту', 'a card'], ['карты', 'cards'], ['карт', 'cards'],
+    ['разыграли', 'played'], ['разыграл', 'played'], ['сыграл', 'played'], ['добавил', 'played'], ['использовали', 'used'], ['использовал', 'used'], ['использует', 'uses'], ['способность', 'ability'], ['готов.', 'is ready.'], ['присоединился.', 'joined.'],
+    ['сбросил', 'discarded'], ['сбросьте', 'discard'], ['сбрасывает', 'discards'], ['из коалиции', 'from the coalition'], ['в коалицию', 'to the coalition'], ['своей коалиции', 'their coalition'], ['вашей коалиции', 'your coalition'],
+    ['выберите', 'choose'], ['персонажа', 'a resident'], ['персону', 'a resident'], ['персоны', 'residents'], ['соперника', 'an opponent'], ['коалиции', 'coalition'], ['правых', 'the right-wing'], ['левых', 'the left-wing'], ['фракцию', 'faction'],
     ['жетонов', 'tokens'], ['жетон', 'token'], ['украл', 'stole'], ['защитил', 'protected'], ['заблокировал', 'blocked'], ['отменил', 'cancelled'],
-    ['нет цели', 'no target'], ['нечего сбрасывать', 'nothing to discard'], ['пропуск', 'skipped'], ['ход', 'turn'], ['победитель', 'winner'],
+    ['нет цели', 'no target'], ['нечего сбрасывать', 'nothing to discard'], ['пропуск', 'skipped'], ['ход', 'turn'], ['победитель', 'winner'], ['защищён', 'protected'], ['защищен', 'protected'], ['коалиция', 'coalition'],
   ];
-  return replacements.reduce((translated, [from, to]) => translated.replaceAll(from, to), String(line));
+  const translated = replacements.reduce((text, [from, to]) => text.replaceAll(from, to), String(line));
+  const letters = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+  return translated.replace(/[А-Яа-яЁё]/g, (letter) => {
+    const value = letters[letter.toLowerCase()] || '';
+    return letter === letter.toUpperCase() ? value.toUpperCase() : value;
+  });
 }
 
 function Card({ card, language, onClick, onPreview, dim = false }) {
