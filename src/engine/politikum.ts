@@ -1156,8 +1156,6 @@ export const PolitikumGame = {
       const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       if (!me) return INVALID_MOVE;
 
-      let didSomething = false;
-
       if (option === 'a') {
         // Discard any leftwing persona from any coalition.
         const tid = String(targetId || '');
@@ -1177,38 +1175,33 @@ export const PolitikumGame = {
         if (target?.shielded) return INVALID_MOVE;
         const [drop] = owner.coalition.splice(j, 1);
         if (drop) {
-          didSomething = true;
           G.discard.push(drop);
           if ((drop as any).type === 'persona') persona44OnPersonaDiscarded(G);
         }
         G.log.push(`${ruYou(me.name)} (${pend.sourceCardId}): сбросил ${drop?.name || drop?.id} (левые) у ${owner.name}.`);
       } else {
-        // Remove up to two +1 tokens from all leftwing personas in opponents' coalitions.
+        // Remove every +1 token from leftwing personas currently in play.
         let removed = 0;
         for (const p of (G.players || [])) {
-          if (String(p.id) === String(playerID)) continue;
           for (const c of (p.coalition || [])) {
             if (c.type !== 'persona') continue;
             if (!Array.isArray(c.tags) || !c.tags.includes('faction:leftwing')) continue;
             const cur = Number(c.vpDelta || 0);
-            const take = Math.min(2, Math.max(0, cur));
+            const take = Math.max(0, cur);
             if (take > 0) {
               applyTokenDelta(G, c, -take);
               removed += take;
             }
           }
         }
-        if (removed > 0) didSomething = true;
-        G.log.push(`${ruYou(me.name)} (${pend.sourceCardId}): снял ${removed} × +1 с левых у соперников.`);
+        G.log.push(`${ruYou(me.name)} (${pend.sourceCardId}): снял ${removed} × +1 со всех левых.`);
       }
 
-      // Cost: SVTV takes -1 only if the chosen option actually changed something.
-      if (didSomething) {
-        try {
-          const self: any = (me.coalition || []).find((c: any) => baseId(String(c.id)) === 'persona_3');
-          if (self) applyTokenDelta(G, self, -1);
-        } catch {}
-      }
+      // Both announced SVTV options cost one −1 token.
+      try {
+        const self: any = (me.coalition || []).find((c: any) => baseId(String(c.id)) === 'persona_3');
+        if (self) applyTokenDelta(G, self, -1);
+      } catch {}
 
       (G as any).pending = null;
       recalcPassives(G);
@@ -2504,17 +2497,20 @@ export const PolitikumGame = {
               } else {
                 let removed = 0;
                 for (const pp of (G.players || [])) {
-                  if (String(pp.id) === String(p.id)) continue;
                   for (const c of (pp.coalition || [])) {
                     if (c.type !== 'persona') continue;
                     if (!Array.isArray(c.tags) || !c.tags.includes('faction:leftwing')) continue;
                     const cur = Number(c.vpDelta || 0);
-                    const take = Math.min(2, Math.max(0, cur));
+                    const take = Math.max(0, cur);
                     if (take > 0) { applyTokenDelta(G, c, -take); removed += take; }
                   }
                 }
-                G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): снял ${removed} × +1 с левых у соперников.`);
+                G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): снял ${removed} × +1 со всех левых.`);
               }
+            } catch {}
+            try {
+              const self: any = (p.coalition || []).find((c: any) => baseId(String(c.id)) === 'persona_3');
+              if (self) applyTokenDelta(G, self, -1);
             } catch {}
             (G as any).pending = null;
             recalcPassives(G);

@@ -252,7 +252,12 @@ export const ABILITIES: Record<string, AbilityFn> = {
   },
 
   persona_3_on_enter_choice: ({ G, me, card }) => {
-    // On enter: choose one of two effects. Cost (-1) applies only if the chosen option actually changes something.
+    const hasLeftwing = (G.players || []).some((player: any) => (player.coalition || []).some((resident: any) => resident?.type === 'persona' && resident.tags?.includes('faction:leftwing')));
+    if (!hasLeftwing) {
+      G.log.push(`${me.name} (${card.name || card.id}): левых на поле нет.`);
+      return;
+    }
+    // On enter: choose one of two effects against the left-wing residents in play.
     G.pending = { kind: 'persona_3_choice', playerId: String(me.id), sourceCardId: String(card.id) } as any;
     // UI will show the prompt; avoid duplicate/noisy log line.
   },
