@@ -66,7 +66,7 @@ export type PolitikumState = {
   // pending interaction (for action cards & persona abilities)
   pending?:
     | { kind: 'action_4_discard'; attackerId: string; targetId: string; sourceCardId: string }
-    | { kind: 'action_9_discard_persona'; attackerId: string; targetId: string; sourceCardId: string }
+    | { kind: 'action_9_discard_persona'; attackerId: string; playerId: string; targetId: string; sourceCardId: string }
     | { kind: 'action_7_block_persona'; attackerId: string }
     | { kind: 'action_13_shield_persona'; attackerId: string }
     | { kind: 'action_17_choose_opponent_persona'; attackerId: string }
@@ -3648,14 +3648,14 @@ export const PolitikumGame = {
         return;
       }
 
-      // Action 9: target opponent discards 1 PERSONA from coalition (their choice for now)
+      // Action 9: in solo, the human chooses the exact opposing persona.
       if (base === 'action_9') {
         const tid = String(targetId ?? '');
-        const target = (G.players || []).find((pp: any) => String(pp.id) === tid);
-        if (!target || tid === String(playerID)) return INVALID_MOVE;
+        const target = tid ? (G.players || []).find((pp: any) => String(pp.id) === tid) : null;
+        if ((tid && !target) || tid === String(playerID)) return INVALID_MOVE;
 
         me.hand.splice(idx, 1);
-        const allowPersona10By = (target.coalition || []).some((x: any) => baseId(String(x.id)) === 'persona_10') ? tid : null;
+        const allowPersona10By = target && (target.coalition || []).some((x: any) => baseId(String(x.id)) === 'persona_10') ? tid : null;
         G.response = {
           kind: 'cancel_action',
           playedBy: String(playerID),
@@ -3665,11 +3665,11 @@ export const PolitikumGame = {
         } as any;
         G.lastAction = c;
         G.hasPlayed = true;
-        G.pending = { kind: 'action_9_discard_persona', attackerId: String(playerID), targetId: tid, sourceCardId: String(c.id) };
-        G.log.push(`${ruYou(me.name)} разыграл Вывод во внешний контур на ${target.name}.`);
+        G.pending = { kind: 'action_9_discard_persona', attackerId: String(playerID), playerId: String(playerID), targetId: tid, sourceCardId: String(c.id) };
+        G.log.push(target ? `${ruYou(me.name)} разыграл Вывод во внешний контур на ${target.name}.` : `${ruYou(me.name)} разыграл Вывод во внешний контур: выберите персонажа соперника.`);
 
         // If target is a bot, auto-discard immediately (first persona)
-        if (String(target.name || '').startsWith('[B]')) {
+        if (target && String(playerID) !== '0' && String(target.name || '').startsWith('[B]')) {
           const j = (target.coalition || []).findIndex((cc: any) => cc.type === 'persona');
           if (j >= 0) {
             const [drop] = target.coalition.splice(j, 1);
@@ -3790,9 +3790,12 @@ export const PolitikumGame = {
       if (G.response && responseExpired(G)) G.response = null;
       const pending = G.pending;
       if (!pending || (pending.kind !== 'action_4_discard' && pending.kind !== 'action_9_discard_persona')) return INVALID_MOVE;
-      if (String(playerID) !== String(pending.targetId)) return INVALID_MOVE;
+      if (pending.kind !== 'action_9_discard_persona' && String(playerID) !== String(pending.targetId)) return INVALID_MOVE;
+      if (pending.kind === 'action_9_discard_persona' && String(playerID) !== String(pending.attackerId)) return INVALID_MOVE;
 
-      const target = (G.players || []).find((pp: any) => String(pp.id) === String(pending.targetId));
+      const target = pending.kind === 'action_9_discard_persona' && !pending.targetId
+        ? (G.players || []).find((pp: any) => String(pp.id) !== String(playerID) && (pp.coalition || []).some((c: any) => c.id === cardId))
+        : (G.players || []).find((pp: any) => String(pp.id) === String(pending.targetId));
       if (!target) return INVALID_MOVE;
 
       const idx = (target.coalition || []).findIndex((c: any) => c.id === cardId);

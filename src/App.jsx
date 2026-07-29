@@ -19,7 +19,7 @@ function pendingText(pending) {
   const copy = {
     place_tokens_plus_vp: 'Выберите персонажа в своей коалиции для жетонов.',
     action_4_discard: 'Выберите карту из своей коалиции для сброса.',
-    action_9_discard_persona: 'Выберите персонажа в своей коалиции для сброса.',
+    action_9_discard_persona: 'Выберите конкретного незащищённого персонажа в коалиции соперника.',
     action_7_block_persona: 'Выберите персонажа для блокировки.',
     action_13_shield_persona: 'Выберите персонажа для защиты.',
     action_17_choose_opponent_persona: 'Выберите персонажа соперника.',
@@ -39,6 +39,14 @@ function isPevchihTarget(owner, card) {
     && !card.shielded
     && baseId(card.id) !== 'persona_31'
     && card.tags?.includes('faction:liberal');
+}
+
+function isAction9Target(pending, owner, card) {
+  return owner.id !== '0'
+    && (!pending.targetId || String(owner.id) === String(pending.targetId))
+    && card.type === 'persona'
+    && !card.shielded
+    && baseId(card.id) !== 'persona_31';
 }
 
 export default function App() {
@@ -95,6 +103,7 @@ export default function App() {
       const target = baseId(card.id) === 'persona_9' ? G.players.find((p) => p.id !== '0' && p.active)?.id : undefined;
       client.moves.playPersona(card.id, undefined, 'right', target);
     } else if (card.type === 'action') {
+      if (bid === 'action_9') return client.moves.playAction(card.id);
       const target = G.players.filter((p) => p.id !== '0' && p.active).sort((a, b) => score(b) - score(a))[0]?.id;
       client.moves.playAction(card.id, target);
     }
@@ -106,7 +115,7 @@ export default function App() {
     const id = card.id;
     if (pending.kind === 'place_tokens_plus_vp' && owner.id === '0') client.moves.applyPendingToken(id);
     else if (pending.kind === 'action_4_discard' && owner.id === '0') client.moves.discardFromCoalition(id);
-    else if (pending.kind === 'action_9_discard_persona' && owner.id === '0') client.moves.discardFromCoalition(id);
+    else if (pending.kind === 'action_9_discard_persona' && isAction9Target(pending, owner, card)) client.moves.discardFromCoalition(id);
     else if (pending.kind === 'action_7_block_persona') client.moves.blockPersonaForAction7(owner.id, id);
     else if (pending.kind === 'action_13_shield_persona' && owner.id === '0') client.moves.shieldPersonaForAction13(id);
     else if (pending.kind === 'action_17_choose_opponent_persona' && owner.id !== '0') client.moves.applyAction17ToPersona(id);
@@ -127,7 +136,7 @@ export default function App() {
     const call = (name, ...args) => client.moves[name]?.(...args);
     if (pending.kind === 'place_tokens_plus_vp') return call('applyPendingToken', own.coalition[0]?.id);
     if (pending.kind === 'action_4_discard') return call('discardFromCoalition', own.coalition[0]?.id);
-    if (pending.kind === 'action_9_discard_persona') return call('discardFromCoalition', own.coalition[0]?.id);
+    if (pending.kind === 'action_9_discard_persona') { const target = first(anyCoalition.filter(({ player, card }) => isAction9Target(pending, player, card))); return target && call('discardFromCoalition', target.card.id); }
     if (pending.kind === 'action_7_block_persona') { const target = first(anyCoalition); return target && call('blockPersonaForAction7', target.player.id, target.card.id); }
     if (pending.kind === 'action_13_shield_persona') return call('shieldPersonaForAction13', own.coalition[0]?.id);
     if (pending.kind === 'action_17_choose_opponent_persona') return call('applyAction17ToPersona', opponent?.coalition?.[0]?.id);
@@ -172,7 +181,8 @@ export default function App() {
       <aside className="log"><b>Хроника</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{line}</small>)}</aside>
       <section className="coalitions">{G.players.filter((p) => p.active).map((player) => {
         const selectingPevchih = G.pending?.kind === 'persona_5_pick_liberal' && String(G.pending.playerId) === '0';
-        const visibleCards = selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : player.coalition;
+        const selectingAction9 = G.pending?.kind === 'action_9_discard_persona' && String(G.pending.playerId) === '0';
+        const visibleCards = selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : selectingAction9 ? player.coalition.filter((card) => isAction9Target(G.pending, player, card)) : player.coalition;
         return <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? 'Вы' : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{visibleCards.map((card) => <Card card={card} key={card.id} onClick={() => resolveClick(player, card)} />)}</div></article>;
       })}</section>
       <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>Взять карту</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>Конец хода</button>{G.pending && String(G.pending.playerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>Разрешить выбор</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : 'Сыграйте карту после взятия.'}</small></aside>
