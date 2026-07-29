@@ -20,7 +20,7 @@ function englishLog(line) {
   const replacements = [
     ['Игра окончена. Победитель:', 'Game over. Winner:'], ['Конец раунда:', 'End of round:'], ['Осталось ходов:', 'Turns remaining:'], ['Старт игры', 'Game started'], ['старт игры', 'game started'], ['игроков:', 'players:'],
     ['Событие', 'Event'],
-    ['Вам выпал', 'You drew'], ['вам выпал', 'you drew'], ['вы вытянули', 'you drew'], ['вытянул', 'drew'], ['взяла', 'drew'], ['взял', 'drew'], ['берет', 'draws'], ['возьмите', 'draw'], ['карту', 'a card'], ['карты', 'cards'], ['карт', 'cards'],
+    ['Вам выпал', 'You drew'], ['вам выпал', 'you drew'], ['Вы', 'You'], ['вы вытянули', 'you drew'], ['вытянул', 'drew'], ['взяла', 'drew'], ['взял', 'drew'], ['берет', 'draws'], ['возьмите', 'draw'], ['карту', 'a card'], ['карты', 'cards'], ['карт', 'cards'],
     ['разыграли', 'played'], ['разыграл', 'played'], ['сыграл', 'played'], ['добавил', 'played'], ['использовали', 'used'], ['использовал', 'used'], ['использует', 'uses'], ['способность', 'ability'], ['готов.', 'is ready.'], ['присоединился.', 'joined.'],
     ['сбросил', 'discarded'], ['сбросьте', 'discard'], ['сбрасывает', 'discards'], ['из коалиции', 'from the coalition'], ['в коалицию', 'to the coalition'], ['своей коалиции', 'their coalition'], ['вашей коалиции', 'your coalition'],
     ['выберите', 'choose'], ['персонажа', 'a resident'], ['персону', 'a resident'], ['персоны', 'residents'], ['соперника', 'an opponent'], ['коалиции', 'coalition'], ['правых', 'the right-wing'], ['левых', 'the left-wing'], ['фракцию', 'faction'],
@@ -36,6 +36,25 @@ function englishLog(line) {
     .replace(/поставьте (\d+) жетон\(ов\) \(\+1\) на свою коалицию\./gi, 'place $1 +1 tokens in your coalition.')
     .replace(/распредилил четыре \+1 токена/gi, 'distributed four +1 tokens')
     .replace(/некуда ставить жетоны \(пропуск\)/gi, 'no token target (skipped)');
+  translated = translated
+    .replace(/^(.+) \((.+)\): левых на поле нет\.$/u, '$1 ($2): no left-wing residents are in play.')
+    .replace(/^Ни одного либерала на всю игру\. Это провал!$/u, 'There are no Liberals in play.')
+    .replace(/^(.+) использовали способность Каспарова: выберите коалицию и двух персон для перестановки\.$/u, '$1 used Kasparov: choose a coalition and two residents to swap.')
+    .replace(/^(.+) \((.+)\) способность: забирает случайную карту из руки оппонента$/u, '$1 ($2) takes a random card from an opponent hand.')
+    .replace(/^(.+) разыграл способность Демушкина: выберите красного националиста, чтобы сбросить и унаследовать его \+1 токены$/u, '$1 used Demushkin: discard a Red Nationalist and inherit their +1 tokens.')
+    .replace(/^(.+) разыграл способность Ведута: выберите персонажа не из ФБК, и заберите у него до 3-ёх \+1 токенов$/u, '$1 used Veduta: choose a non-FBK resident and steal up to 3 +1 tokens.')
+    .replace(/^(.+) Ни у кого не нашлось токенов\. Это какой-то провал!$/u, '$1: no +1 tokens were available.')
+    .replace(/^(.+) \((.+)\): выберите персону в своей коалиции, чтобы вернуть в руку\.$/u, '$1 ($2): choose a resident in your coalition to return to hand.')
+    .replace(/^(.+) \(persona_37\): нет цели для подкупа\.$/u, '$1 (Persona 37): no resident can be bribed.')
+    .replace(/^(.+) \((.+)\): угадайте верхнюю карту колоды\.$/u, '$1 ($2): guess the top card of the deck.')
+    .replace(/^(.+) \((.+)\) высосал (\d+) × \+1 у правых\.$/u, '$1 ($2) drained $3 +1 tokens from right-wing residents.')
+    .replace(/^(.+) \((.+)\) пассивка: получает \+1 когда кого-то обвинили в работе на кремль\.$/u, '$1 ($2) gains +1 whenever someone is accused of Working for the Kremlin.')
+    .replace(/^(.+) \((.+)\) усилил (\d+) либерал\(ов\) в своей коалиции \(\+1\)\.$/u, '$1 ($2) gave +1 to $3 Liberal resident(s) in their coalition.')
+    .replace(/^(.+) \((.+)\): выберите соперника — посмотрите его руку и заберите 1 персону\.$/u, '$1 ($2): choose an opponent, inspect their hand, and take 1 resident.')
+    .replace(/^(.+): (\d+) персонаж\(ей\) (.+) получает -1, затем вы берёте карту\.$/u, '$1: $2 $3 resident(s) receive −1, then you draw a card.')
+    .replace(/^(.+) \((.+)\): выберите персону в любой коалиции для сброса\.$/u, '$1 ($2): choose a resident in any coalition to discard.')
+    .replace(/^(.+): способность заблокирована \((.+), (.+)\)\.$/u, '$1: ability blocked ($2, $3).')
+    .replace(/^(.+): способность TODO \((.+), (.+)\)$/u, '$1: ability not implemented yet ($2, $3).');
   translated = replacements.reduce((text, [from, to]) => text.replaceAll(from, to), translated);
   const letters = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
   return translated.replace(/[А-Яа-яЁё]/g, (letter) => {
