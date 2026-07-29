@@ -99,6 +99,7 @@ export default function App() {
     else if (pending.kind === 'action_7_block_persona') client.moves.blockPersonaForAction7(owner.id, id);
     else if (pending.kind === 'action_13_shield_persona' && owner.id === '0') client.moves.shieldPersonaForAction13(id);
     else if (pending.kind === 'action_17_choose_opponent_persona' && owner.id !== '0') client.moves.applyAction17ToPersona(id);
+    else if (pending.kind === 'persona_5_pick_liberal' && owner.id !== '0') client.moves.persona5PickLiberal(owner.id, id);
     else if (pending.kind === 'persona_21_pick_target_invert') client.moves.persona21InvertTokens(owner.id, id);
     else if (pending.kind === 'persona_26_pick_red_nationalist') client.moves.persona26PurgeRedNationalist(owner.id, id);
     else if (pending.kind === 'persona_28_pick_non_fbk') client.moves.persona28StealPlusTokens(owner.id, id, 3);
@@ -121,7 +122,7 @@ export default function App() {
     if (pending.kind === 'action_17_choose_opponent_persona') return call('applyAction17ToPersona', opponent?.coalition?.[0]?.id);
     if (pending.kind === 'action_18_pick_persona_from_discard') return call('pickPersonaFromDiscardForAction18', G.discard.find((card) => card.type === 'persona')?.id);
     if (pending.kind === 'persona_3_choice') return call('persona3ChooseOption', 'b');
-    if (pending.kind === 'persona_5_pick_liberal') { const target = first(anyCoalition.filter(({ card }) => card.tags?.includes('faction:liberal'))); return target && call('persona5PickLiberal', target.player.id, target.card.id); }
+    if (pending.kind === 'persona_5_pick_liberal') { const target = first(anyCoalition.filter(({ player, card }) => player.id !== '0' && card.tags?.includes('faction:liberal'))); return target && call('persona5PickLiberal', target.player.id, target.card.id); }
     if (pending.kind === 'persona_7_swap_two_in_coalition') { const host = G.players.find((player) => player.coalition.length > 1); return host && call('persona7SwapTwoInCoalition', host.id, host.coalition[0].id, host.coalition[1].id); }
     if (pending.kind === 'persona_45_steal_from_opponent') return call('persona45StealFromOpponent', opponent?.id);
     if (pending.kind === 'persona_16_discard3_from_hand') { const ids = own.hand.slice(0, 3).map((card) => card.id); return call('persona16Discard3FromHand', ids[0], ids[1], ids[2]); }
