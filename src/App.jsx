@@ -174,7 +174,7 @@ export default function App() {
       })}</section>
       <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>Взять карту</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>Конец хода</button>{G.pending && String(G.pending.playerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>Разрешить выбор</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : 'Сыграйте карту после взятия.'}</small></aside>
     </section>
-    <section className="hand"><div><b>Ваша рука</b><small>{me?.hand?.length || 0} карт</small></div><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} />; })}</div></section>
+    <section className="hand"><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} />; })}</div></section>
     {winner && <div className="ending"><div><p>Партия окончена</p><h2>{winner.id === '0' ? 'Вы победили' : `${winner.name} побеждает`}</h2><strong>{score(winner)} VP</strong><button onClick={start}>Ещё одну</button></div></div>}
   </main>;
 }
