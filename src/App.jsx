@@ -72,6 +72,7 @@ function Card({ card, language, onClick, onPreview, dim = false }) {
     else onClick?.();
   };
   return <button className={`card ${dim ? 'dim' : ''}`} onClick={inspectOrPlay} title={`${card.name || baseId(card.id)} · ${card.vp ?? 0} VP`}>
+    {card.shieldedBy === 'action_13' && <img className="white-coat" src={cardImage({ img: '/cards/action_13.webp' }, language)} alt="White Coat" />}
     <img src={cardImage(card, language)} alt={card.name || card.id} />
     {card.type === 'persona' && <span className="card-stats"><b className="vp">{card.vp ?? 0}</b>{plusTokens > 0 && <i className="token-plus">+{plusTokens}</i>}{minusTokens > 0 && <i className="token-minus">−{minusTokens}</i>}</span>}
     {card.blockedAbilities && <i className="marker">×</i>}
