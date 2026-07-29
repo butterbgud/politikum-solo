@@ -7,8 +7,8 @@ const baseId = (id) => String(id || '').split('#')[0];
 const score = (player) => (player?.coalition || []).reduce((sum, card) => sum + Number(card.vp || 0), 0);
 const BUILD_VERSION = __BUILD_VERSION__;
 const UI = {
-  ru: { rivals: 'Соперники', start: 'Начать локальную игру', intro: 'Всё состояние живёт в браузере. Никаких аккаунтов, API или сервера.', salon: 'Политический салон', yourTurn: 'Ваш ход', thinking: 'думает', deck: 'карт в колоде', newGame: 'Новая игра', log: 'Хроника', you: 'Вы', draw: 'Взять карту', secondDraw: 'Взять вторую · конец хода', end: 'Конец хода', auto: 'Разрешить выбор', choose: 'Выбрать', close: 'Нажмите вне карты, чтобы закрыть', ended: 'Партия окончена', won: 'Вы победили', wins: 'побеждает', again: 'Ещё одну', playAfterDraw: 'Сыграйте карту после взятия.' },
-  en: { rivals: 'Opponents', start: 'Start local game', intro: 'Everything lives in this browser. No accounts, APIs, or server.', salon: 'Political Salon', yourTurn: 'Your turn', thinking: 'is thinking', deck: 'cards in deck', newGame: 'New game', log: 'Chronicle', you: 'You', draw: 'Draw card', secondDraw: 'Draw second · end turn', end: 'End turn', auto: 'Auto-pick', choose: 'Choose', close: 'Tap outside the card to close', ended: 'Game over', won: 'You win', wins: 'wins', again: 'Play again', playAfterDraw: 'Play a card after drawing.' },
+  ru: { rivals: 'Соперники', start: 'Начать локальную игру', intro: 'Всё состояние живёт в браузере. Никаких аккаунтов, API или сервера.', salon: 'Политический салон', yourTurn: 'Ваш ход', thinking: 'думает', deck: 'карт в колоде', newGame: 'Новая игра', log: 'Хроника', you: 'Вы', draw: 'Взять карту', secondDraw: 'Взять вторую · конец хода', end: 'Конец хода', auto: 'Разрешить выбор', choose: 'Выбрать', close: 'Нажмите вне карты, чтобы закрыть', ended: 'Партия окончена', won: 'Вы победили', wins: 'побеждает', again: 'Ещё одну', playAfterDraw: 'Сыграйте карту после взятия.', reportBug: 'Сообщить об ошибке', reportTitle: 'Сообщить об ошибке', reportHint: 'К отчёту будет приложена последняя история партии.', reportPlaceholder: 'Что произошло? (необязательно)', send: 'Отправить', cancel: 'Отмена', sent: 'Отчёт отправлен. Спасибо!', failed: 'Не удалось отправить отчёт.' },
+  en: { rivals: 'Opponents', start: 'Start local game', intro: 'Everything lives in this browser. No accounts, APIs, or server.', salon: 'Political Salon', yourTurn: 'Your turn', thinking: 'is thinking', deck: 'cards in deck', newGame: 'New game', log: 'Chronicle', you: 'You', draw: 'Draw card', secondDraw: 'Draw second · end turn', end: 'End turn', auto: 'Auto-pick', choose: 'Choose', close: 'Tap outside the card to close', ended: 'Game over', won: 'You win', wins: 'wins', again: 'Play again', playAfterDraw: 'Play a card after drawing.', reportBug: 'Report bug', reportTitle: 'Report a bug', reportHint: 'The recent game history will be attached.', reportPlaceholder: 'What happened? (optional)', send: 'Send report', cancel: 'Cancel', sent: 'Report sent. Thank you!', failed: 'Could not send the report.' },
 };
 const cardImage = (card, language) => language === 'en' ? card.img?.replace('/cards/', '/cards/eng/') : card.img;
 function englishLog(line) {
@@ -112,6 +112,9 @@ export default function App() {
   const [clock, setClock] = useState(Date.now());
   const [preview, setPreview] = useState(null);
   const [language, setLanguage] = useState('ru');
+  const [bugOpen, setBugOpen] = useState(false);
+  const [bugText, setBugText] = useState('');
+  const [bugStatus, setBugStatus] = useState('');
   const clientRef = useRef(null);
 
   const start = () => {
@@ -225,6 +228,15 @@ export default function App() {
   };
 
   const ui = UI[language];
+  const submitBug = async () => {
+    setBugStatus('sending');
+    try {
+      const response = await fetch('/api/bugreport', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: bugText, version: BUILD_VERSION, language, url: window.location.href, userAgent: navigator.userAgent, history: (G?.log || []).slice(-30), game: G ? { turn: ctx?.turn, pending: G.pending?.kind || null, response: G.response?.kind || null, deck: G.deck?.length || 0 } : null }) });
+      if (!response.ok) throw new Error('Bug report request failed');
+      setBugStatus('sent');
+      setBugText('');
+    } catch { setBugStatus('failed'); }
+  };
   if (!client) return <main className="welcome"><div><p>Politikum · solo</p><h1>{language === 'en' ? 'Politics without a server' : 'Политика без сервера'}</h1><div className="language"><button className={language === 'ru' ? 'picked' : ''} onClick={() => setLanguage('ru')}>Русский</button><button className={language === 'en' ? 'picked' : ''} onClick={() => setLanguage('en')}>English</button></div><span>{ui.rivals}</span><div className="picker">{[1, 2, 3, 4].map((n) => <button className={bots === n ? 'picked' : ''} onClick={() => setBots(n)} key={n}>{n}</button>)}</div><button className="start" onClick={start}>{ui.start}</button><small>{ui.intro}</small></div></main>;
 
   if (!G) return <main className="welcome"><div>Загрузка колоды…</div></main>;
@@ -233,7 +245,7 @@ export default function App() {
   const canAnswerResponse = G.response && String(G.response.playedBy) !== '0';
   const responseCards = new Set(canAnswerResponse ? (G.response.kind === 'cancel_action' ? ['action_6', 'action_14'] : G.response.kind === 'cancel_persona' ? ['action_8'] : []) : []);
   return <main className="app">
-    <header><div><p>POLITIKUM · SOLO</p><h1>{ui.salon}</h1><small className="version">#{BUILD_VERSION}</small></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div><button onClick={start}>{ui.newGame}</button></header>
+    <header><div><p>POLITIKUM · SOLO</p><h1>{ui.salon}</h1><small className="version">#{BUILD_VERSION}</small></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div><div className="header-actions"><button className="report-button" onClick={() => { setBugStatus(''); setBugOpen(true); }}>{ui.reportBug}</button><button onClick={start}>{ui.newGame}</button></div></header>
     {G.pending && <div className="prompt">{pendingText(G.pending, language)}</div>}
     {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · play ${G.response.kind === 'cancel_action' ? 'Volunteering or another action-cancel card' : 'Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · сыграйте ${G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.`}</div>}
     {G.response?.persona8Swap?.playerId === '0' && <button className="persona8-response" onClick={() => client.moves.persona8SwapWithPlayedPersona()}>{language === 'en' ? `Swap Persona 8 for ${G.response.personaCard?.name || 'the played resident'}` : `Поменять Персону 8 на ${G.response.personaCard?.name || 'сыгранного персонажа'}`}</button>}
@@ -250,6 +262,7 @@ export default function App() {
     {G.pending?.kind === 'action_18_pick_persona_from_discard' && String(G.pending.attackerId) === '0' && <section className="discard-picker"><b>{language === 'en' ? 'Choose a discarded resident' : 'Выберите персонажа из сброса'}</b><div className="fan">{G.discard.filter((card) => card.type === 'persona').map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.pickPersonaFromDiscardForAction18(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section>}
     {G.pending?.kind === 'persona_23_choose_self_inflict_draw' && String(G.pending.playerId) === '0' && <section className="persona23-choice"><b>{language === 'en' ? 'Persona 23 — choose the cost' : 'Персона 23 — выберите цену'}</b><div>{[1, 2, 3].map((n) => <button key={n} disabled={n > 3 - Number(G.pending.taken || 0)} onClick={() => client.moves.persona23ChooseSelfInflict(n)}>{language === 'en' ? `−${n} VP · draw ${n}` : `−${n} VP · взять ${n}`}</button>)}</div></section>}
     <section className="hand"><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} language={language} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div></section>
+    {bugOpen && <div className="bug-modal" onClick={() => bugStatus !== 'sending' && setBugOpen(false)}><form onSubmit={(event) => { event.preventDefault(); submitBug(); }} onClick={(event) => event.stopPropagation()}><h2>{ui.reportTitle}</h2><p>{ui.reportHint}</p><textarea autoFocus value={bugText} onChange={(event) => setBugText(event.target.value)} placeholder={ui.reportPlaceholder} maxLength="1200" />{bugStatus === 'sent' ? <strong className="bug-success">{ui.sent}</strong> : bugStatus === 'failed' ? <strong className="bug-failed">{ui.failed}</strong> : null}<div><button type="button" onClick={() => setBugOpen(false)} disabled={bugStatus === 'sending'}>{ui.cancel}</button><button className="start" type="submit" disabled={bugStatus === 'sending'}>{ui.send}</button></div></form></div>}
     {preview && <div className="card-preview" onClick={() => setPreview(null)}><div className="preview-card" onClick={(event) => event.stopPropagation()}><img src={cardImage(preview.card, language)} alt={preview.card.name || preview.card.id} /><button onClick={() => { preview.action?.(); setPreview(null); }}>{ui.choose}</button><small>{ui.close}</small></div></div>}
     {winner && <div className="ending"><div><p>{ui.ended}</p><h2>{winner.id === '0' ? ui.won : `${winner.name} ${ui.wins}`}</h2><strong>{score(winner)} VP</strong><ScoreChart history={G.history} players={G.players.filter((player) => player.active)} /><button onClick={start}>{ui.again}</button></div></div>}
   </main>;
