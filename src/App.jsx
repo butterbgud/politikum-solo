@@ -5,10 +5,15 @@ import { PolitikumGame } from './engine/game.js';
 const BOT_NAMES = ['Гертруда', 'Ульрих', 'Ингеборга', 'Тибальт'];
 const baseId = (id) => String(id || '').split('#')[0];
 const score = (player) => (player?.coalition || []).reduce((sum, card) => sum + Number(card.vp || 0), 0);
+const BUILD_VERSION = __BUILD_VERSION__;
 
-function Card({ card, onClick, dim = false }) {
+function Card({ card, onClick, onPreview, dim = false }) {
   if (!card) return null;
-  return <button className={`card ${dim ? 'dim' : ''}`} onClick={onClick} title={`${card.name || baseId(card.id)} · ${card.vp ?? 0} VP`}>
+  const inspectOrPlay = () => {
+    if (window.matchMedia('(hover: none), (pointer: coarse)').matches) onPreview?.(card, onClick);
+    else onClick?.();
+  };
+  return <button className={`card ${dim ? 'dim' : ''}`} onClick={inspectOrPlay} title={`${card.name || baseId(card.id)} · ${card.vp ?? 0} VP`}>
     <img src={card.img} alt={card.name || card.id} />
     {card.type === 'persona' && <b className="vp">{card.vp ?? 0}</b>}
     {card.blockedAbilities && <i className="marker">×</i>}
@@ -54,6 +59,7 @@ export default function App() {
   const [client, setClient] = useState(null);
   const [state, setState] = useState(null);
   const [clock, setClock] = useState(Date.now());
+  const [preview, setPreview] = useState(null);
   const clientRef = useRef(null);
 
   const start = () => {
@@ -174,7 +180,7 @@ export default function App() {
   const canAnswerResponse = G.response && String(G.response.playedBy) !== '0';
   const responseCards = new Set(canAnswerResponse ? (G.response.kind === 'cancel_action' ? ['action_6', 'action_14'] : G.response.kind === 'cancel_persona' ? ['action_8'] : []) : []);
   return <main className="app">
-    <header><div><p>POLITIKUM · SOLO</p><h1>Политический салон</h1></div><div className="turn"><b>{active ? 'Ваш ход' : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Бот'} думает`}</b><small>{G.deck.length} карт в колоде</small></div><button onClick={start}>Новая игра</button></header>
+    <header><div><p>POLITIKUM · SOLO</p><h1>Политический салон</h1><small className="version">#{BUILD_VERSION}</small></div><div className="turn"><b>{active ? 'Ваш ход' : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Бот'} думает`}</b><small>{G.deck.length} карт в колоде</small></div><button onClick={start}>Новая игра</button></header>
     {G.pending && <div className="prompt">{pendingText(G.pending)}</div>}
     {G.response && canAnswerResponse && <div className="prompt response">Ответ: {responseSeconds}с · сыграйте {G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.</div>}
     <section className="table">
@@ -183,11 +189,12 @@ export default function App() {
         const selectingPevchih = G.pending?.kind === 'persona_5_pick_liberal' && String(G.pending.playerId) === '0';
         const selectingAction9 = G.pending?.kind === 'action_9_discard_persona' && String(G.pending.playerId) === '0';
         const visibleCards = selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : selectingAction9 ? player.coalition.filter((card) => isAction9Target(G.pending, player, card)) : player.coalition;
-        return <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? 'Вы' : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{visibleCards.map((card) => <Card card={card} key={card.id} onClick={() => resolveClick(player, card)} />)}</div></article>;
+        return <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? 'Вы' : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{visibleCards.map((card) => <Card card={card} key={card.id} onClick={() => resolveClick(player, card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></article>;
       })}</section>
       <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>Взять карту</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>Конец хода</button>{G.pending && String(G.pending.playerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>Разрешить выбор</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : 'Сыграйте карту после взятия.'}</small></aside>
     </section>
-    <section className="hand"><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} />; })}</div></section>
+    <section className="hand"><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div></section>
+    {preview && <div className="card-preview" onClick={() => setPreview(null)}><div className="preview-card" onClick={(event) => event.stopPropagation()}><img src={preview.card.img} alt={preview.card.name || preview.card.id} /><button onClick={() => { preview.action?.(); setPreview(null); }}>Выбрать</button><small>Нажмите вне карты, чтобы закрыть</small></div></div>}
     {winner && <div className="ending"><div><p>Партия окончена</p><h2>{winner.id === '0' ? 'Вы победили' : `${winner.name} побеждает`}</h2><strong>{score(winner)} VP</strong><button onClick={start}>Ещё одну</button></div></div>}
   </main>;
 }
