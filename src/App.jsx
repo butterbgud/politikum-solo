@@ -82,7 +82,9 @@ export default function App() {
   }, [client, G?.response, G?.gameOver]);
 
   const play = (card) => {
-    if (!client || G.pending) return;
+    // Persona responses keep their source ability pending until the window
+    // closes; that pending state must not make a valid response card inert.
+    if (!client || (G.pending && !G.response)) return;
     const bid = baseId(card.id);
     if (G.response) {
       if (['action_6', 'action_8', 'action_14'].includes(bid)) client.moves.playAction(card.id);
@@ -160,11 +162,12 @@ export default function App() {
   if (!G) return <main className="welcome"><div>Загрузка колоды…</div></main>;
   const winner = G.gameOver ? [...G.players].filter((p) => p.active).sort((a, b) => score(b) - score(a))[0] : null;
   const responseSeconds = G.response ? Math.max(0, Math.ceil((Number(G.response.expiresAtMs || 0) - clock) / 1000)) : 0;
-  const responseCards = new Set(G.response?.kind === 'cancel_action' ? ['action_6', 'action_14'] : G.response?.kind === 'cancel_persona' ? ['action_8'] : []);
+  const canAnswerResponse = G.response && String(G.response.playedBy) !== '0';
+  const responseCards = new Set(canAnswerResponse ? (G.response.kind === 'cancel_action' ? ['action_6', 'action_14'] : G.response.kind === 'cancel_persona' ? ['action_8'] : []) : []);
   return <main className="app">
     <header><div><p>POLITIKUM · SOLO</p><h1>Политический салон</h1></div><div className="turn"><b>{active ? 'Ваш ход' : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Бот'} думает`}</b><small>{G.deck.length} карт в колоде</small></div><button onClick={start}>Новая игра</button></header>
     {G.pending && <div className="prompt">{pendingText(G.pending)}</div>}
-    {G.response && <div className="prompt response">Ответ: {responseSeconds}с · сыграйте {G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.</div>}
+    {G.response && canAnswerResponse && <div className="prompt response">Ответ: {responseSeconds}с · сыграйте {G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.</div>}
     <section className="table">
       <aside className="log"><b>Хроника</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{line}</small>)}</aside>
       <section className="coalitions">{G.players.filter((p) => p.active).map((player) => {

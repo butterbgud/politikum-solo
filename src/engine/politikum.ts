@@ -3461,8 +3461,15 @@ export const PolitikumGame = {
       const me = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       if (!me) return INVALID_MOVE;
 
-      // Allow out-of-turn cancel actions
-      if (String(playerID) !== String(ctx.currentPlayer)) {
+      // Allow response cards even if a bot has already ended its turn and the
+      // human has become currentPlayer.  The response itself is still limited
+      // to someone other than the original player below.
+      const held = (me.hand || []).find((c: any) => c.id === cardId);
+      const isResponseCard = ['action_6', 'action_8', 'action_14'].includes(baseId(String(held?.id || '')));
+      const mayAnswerOpenResponse = !!G.response
+        && isResponseCard
+        && String(G.response.playedBy) !== String(playerID);
+      if (String(playerID) !== String(ctx.currentPlayer) || mayAnswerOpenResponse) {
         const idx = (me.hand || []).findIndex((c: any) => c.id === cardId);
         if (idx === -1) return INVALID_MOVE;
         const c = me.hand[idx];
