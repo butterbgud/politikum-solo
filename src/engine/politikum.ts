@@ -2674,6 +2674,28 @@ export const PolitikumGame = {
             return;
           }
 
+          // persona_32 bounce: shed the coalition's worst current VP burden.
+          // Current VP already includes printed value, passive effects, and +/- tokens.
+          if (pend.kind === 'persona_32_pick_bounce_target' && String(pend.playerId) === String(p.id)) {
+            try {
+              const candidates = (p.coalition || []).filter((c: any) => c?.type === 'persona');
+              candidates.sort((a: any, b: any) => Number(a.vp ?? a.baseVp ?? 0) - Number(b.vp ?? b.baseVp ?? 0));
+              const target: any = candidates[0];
+              if (target && Number(target.vp ?? target.baseVp ?? 0) < 0) {
+                const index = p.coalition.findIndex((c: any) => String(c.id) === String(target.id));
+                if (index >= 0) {
+                  p.coalition.splice(index, 1);
+                  p.hand.push(target);
+                  G.log.push(`${actorWithPersona(p, 'persona_32')} вернул ${target.name || target.id} в руку, избавившись от ${target.vp} VP.`);
+                }
+              }
+            } catch {}
+            (G as any).pending = null;
+            recalcPassives(G);
+            G.botNextActAtMs = nowMs() + 400;
+            return;
+          }
+
           // persona_33 choose faction: bots auto-pick a faction (avoid wedging the match)
           if (pend.kind === 'persona_33_choose_faction' && String(pend.playerId) === String(p.id)) {
             try {
