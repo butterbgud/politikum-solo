@@ -2745,8 +2745,26 @@ export const PolitikumGame = {
             return;
           }
 
-          // persona_34 guess: bots skip (avoid stalls)
+          // persona_34 guess: make a real legal prediction and reveal both sides
+          // in the Chronicle. Hidden opponent hands intentionally stay eligible.
           if (pend.kind === 'persona_34_guess_topdeck' && String(pend.playerId) === String(p.id)) {
+            const choices = [...milovEligiblePersonaBaseIds(G, String(p.id))];
+            const guess = choices[Math.floor(Math.random() * choices.length)];
+            const nextPersona = (G.deck || []).find((c: any) => c?.type === 'persona');
+            if (!guess) {
+              G.log.push(`${actorWithPersona(p, 'persona_34')} пропустил гадание: подходящих персон не осталось.`);
+            } else if (!nextPersona) {
+              G.log.push(`${actorWithPersona(p, 'persona_34')} загадал ${personaTitleByBaseId(guess)}, но в колоде больше нет персон.`);
+            } else {
+              const actual = baseId(String(nextPersona.id));
+              G.log.push(`${actorWithPersona(p, 'persona_34')} загадал ${personaTitleByBaseId(guess)}. Следующая персона в колоде: ${personaTitleByBaseId(actual)}.`);
+              if (guess === actual) {
+                G.gameOver = true;
+                G.winnerId = String(p.id);
+                G.log.push(`${actorWithPersona(p, 'persona_34')}: угадал — мгновенная победа для ${ruYou(p.name)}.`);
+                events.endGame?.();
+              }
+            }
             (G as any).pending = null;
             G.botNextActAtMs = nowMs() + 250;
             return;

@@ -80,6 +80,7 @@ function englishLog(line) {
     .replace(/^(.+) пропустил гадание\.$/u, '$1 skipped Milov’s prediction.')
     .replace(/^(.+) загадал (.+), но в колоде больше нет персон\.$/u, '$1 named $2, but no personas remain in the deck.')
     .replace(/^(.+) загадал (.+)\. Следующая персона в колоде \((\d+) пропущено\): (.+)\.$/u, '$1 named $2. The next persona in the deck (after $3 non-persona card(s)) is $4.')
+    .replace(/^(.+) загадал (.+)\. Следующая персона в колоде: (.+)\.$/u, '$1 named $2. The next persona in the deck is $3.')
     .replace(/^(.+): угадал — мгновенная победа для (.+)\.$/u, '$1 guessed correctly — instant victory for $2!')
     .replace(/^(.+) \((.+)\) высосал (\d+) × \+1 у правых\.$/u, '$1 ($2) drained $3 +1 tokens from right-wing residents.')
     .replace(/^(.+) \((.+)\) пассивка: получает \+1 когда кого-то обвинили в работе на кремль\.$/u, '$1 ($2) gains +1 whenever someone is accused of Working for the Kremlin.')
