@@ -29,6 +29,9 @@ function englishLog(line) {
   ];
   let translated = cardTitles.reduce((text, [from, to]) => text.replaceAll(from, to), String(line));
   translated = translated
+    .replace(/^В стопке сброса ничего не нашлось!$/u, 'No action card was found in the discard pile.')
+    .replace(/^Вы использовали Быкова: выберите карту действия из стопки сброса себе в руку$/u, 'You used Bykov: choose an action card from the discard pile to return to your hand.')
+    .replace(/^(.+) используя Быкова взял (.+) из сброса\.$/u, '$1 used Bykov to take $2 from the discard pile.')
     .replace(/^Вы Событие - (.+): некуда ставить жетоны \(пропуск\)\.?$/u, 'You drew "$1": no token target (skipped).')
     .replace(/поставьте (\d+) жетон\(ов\) \(\+1\) на свою коалицию\./gi, 'place $1 +1 tokens in your coalition.')
     .replace(/распредилил четыре \+1 токена/gi, 'distributed four +1 tokens')
