@@ -23,6 +23,7 @@ function pendingText(pending) {
     action_7_block_persona: 'Выберите персонажа для блокировки.',
     action_13_shield_persona: 'Выберите персонажа для защиты.',
     action_17_choose_opponent_persona: 'Выберите персонажа соперника.',
+    persona_5_pick_liberal: 'Певчих: выберите либерала соперника без защиты «Белого халата».',
     persona_21_pick_target_invert: 'Выберите персонажа: его жетоны поменяются местами.',
     persona_26_pick_red_nationalist: 'Выберите красного националиста.',
     persona_28_pick_non_fbk: 'Выберите не-ФБК персонажа.',
@@ -30,6 +31,14 @@ function pendingText(pending) {
     discard_down_to_7: 'Сбросьте карту из руки до лимита 7.',
   };
   return copy[pending?.kind] || (pending ? `Нужно решение: ${pending.kind}` : '');
+}
+
+function isPevchihTarget(owner, card) {
+  return owner.id !== '0'
+    && card.type === 'persona'
+    && !card.shielded
+    && baseId(card.id) !== 'persona_31'
+    && card.tags?.includes('faction:liberal');
 }
 
 export default function App() {
@@ -99,7 +108,7 @@ export default function App() {
     else if (pending.kind === 'action_7_block_persona') client.moves.blockPersonaForAction7(owner.id, id);
     else if (pending.kind === 'action_13_shield_persona' && owner.id === '0') client.moves.shieldPersonaForAction13(id);
     else if (pending.kind === 'action_17_choose_opponent_persona' && owner.id !== '0') client.moves.applyAction17ToPersona(id);
-    else if (pending.kind === 'persona_5_pick_liberal' && owner.id !== '0') client.moves.persona5PickLiberal(owner.id, id);
+    else if (pending.kind === 'persona_5_pick_liberal' && isPevchihTarget(owner, card)) client.moves.persona5PickLiberal(owner.id, id);
     else if (pending.kind === 'persona_21_pick_target_invert') client.moves.persona21InvertTokens(owner.id, id);
     else if (pending.kind === 'persona_26_pick_red_nationalist') client.moves.persona26PurgeRedNationalist(owner.id, id);
     else if (pending.kind === 'persona_28_pick_non_fbk') client.moves.persona28StealPlusTokens(owner.id, id, 3);
@@ -122,7 +131,7 @@ export default function App() {
     if (pending.kind === 'action_17_choose_opponent_persona') return call('applyAction17ToPersona', opponent?.coalition?.[0]?.id);
     if (pending.kind === 'action_18_pick_persona_from_discard') return call('pickPersonaFromDiscardForAction18', G.discard.find((card) => card.type === 'persona')?.id);
     if (pending.kind === 'persona_3_choice') return call('persona3ChooseOption', 'b');
-    if (pending.kind === 'persona_5_pick_liberal') { const target = first(anyCoalition.filter(({ player, card }) => player.id !== '0' && card.tags?.includes('faction:liberal'))); return target && call('persona5PickLiberal', target.player.id, target.card.id); }
+    if (pending.kind === 'persona_5_pick_liberal') { const target = first(anyCoalition.filter(({ player, card }) => isPevchihTarget(player, card))); return target && call('persona5PickLiberal', target.player.id, target.card.id); }
     if (pending.kind === 'persona_7_swap_two_in_coalition') { const host = G.players.find((player) => player.coalition.length > 1); return host && call('persona7SwapTwoInCoalition', host.id, host.coalition[0].id, host.coalition[1].id); }
     if (pending.kind === 'persona_45_steal_from_opponent') return call('persona45StealFromOpponent', opponent?.id);
     if (pending.kind === 'persona_16_discard3_from_hand') { const ids = own.hand.slice(0, 3).map((card) => card.id); return call('persona16Discard3FromHand', ids[0], ids[1], ids[2]); }
@@ -158,7 +167,11 @@ export default function App() {
     {G.response && <div className="prompt response">Ответ: {responseSeconds}с · сыграйте {G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.</div>}
     <section className="table">
       <aside className="log"><b>Хроника</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{line}</small>)}</aside>
-      <section className="coalitions">{G.players.filter((p) => p.active).map((player) => <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? 'Вы' : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{player.coalition.map((card) => <Card card={card} key={card.id} onClick={() => resolveClick(player, card)} />)}</div></article>)}</section>
+      <section className="coalitions">{G.players.filter((p) => p.active).map((player) => {
+        const selectingPevchih = G.pending?.kind === 'persona_5_pick_liberal' && String(G.pending.playerId) === '0';
+        const visibleCards = selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : player.coalition;
+        return <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? 'Вы' : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{visibleCards.map((card) => <Card card={card} key={card.id} onClick={() => resolveClick(player, card)} />)}</div></article>;
+      })}</section>
       <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasDrawn} onClick={() => client.moves.drawCard()}>Взять карту</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>Конец хода</button>{G.pending && String(G.pending.playerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>Разрешить выбор</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : 'Сыграйте карту после взятия.'}</small></aside>
     </section>
     <section className="hand"><div><b>Ваша рука</b><small>{me?.hand?.length || 0} карт</small></div><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} />; })}</div></section>
