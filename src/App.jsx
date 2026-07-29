@@ -54,6 +54,30 @@ function isAction9Target(pending, owner, card) {
     && baseId(card.id) !== 'persona_31';
 }
 
+function ScoreChart({ history = [], players = [] }) {
+  const width = 560;
+  const height = 235;
+  const margin = { top: 14, right: 16, bottom: 34, left: 42 };
+  const scores = history.flatMap((entry) => players.map((player) => Number(entry.scores?.[player.id] || 0)));
+  const minScore = Math.min(0, ...scores);
+  const maxScore = Math.max(1, ...scores);
+  const range = Math.max(1, maxScore - minScore);
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const x = (index) => margin.left + (history.length < 2 ? plotWidth / 2 : index / (history.length - 1) * plotWidth);
+  const y = (value) => margin.top + (maxScore - value) / range * plotHeight;
+  const colors = ['#f5cc75', '#68c9c8', '#e97950', '#bc91e4', '#9ec56b'];
+  const ticks = Array.from({ length: 5 }, (_, index) => minScore + range * index / 4);
+
+  return <div className="score-chart"><div className="chart-legend">{players.map((player, index) => <span key={player.id}><i style={{ background: colors[index] }} />{player.id === '0' ? 'Вы' : player.name}</span>)}</div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Victory points by turn">
+    {ticks.map((value) => <g key={value}><line x1={margin.left} x2={width - margin.right} y1={y(value)} y2={y(value)} /><text x={margin.left - 8} y={y(value) + 4}>{Math.round(value)}</text></g>)}
+    <line className="chart-axis" x1={margin.left} x2={width - margin.right} y1={height - margin.bottom} y2={height - margin.bottom} />
+    {history.map((entry, index) => <text className="chart-turn" key={`${entry.turn}-${index}`} x={x(index)} y={height - 12}>{entry.turn}</text>)}
+    {players.map((player, playerIndex) => { const points = history.map((entry, index) => `${x(index)},${y(Number(entry.scores?.[player.id] || 0))}`).join(' '); return <g className="chart-series" key={player.id}><polyline points={points} style={{ stroke: colors[playerIndex] }} />{history.map((entry, index) => <circle key={index} cx={x(index)} cy={y(Number(entry.scores?.[player.id] || 0))} r="3.5" style={{ fill: colors[playerIndex] }}><title>{`${player.name}, ход ${entry.turn}: ${entry.scores?.[player.id] || 0} VP`}</title></circle>)}</g>; })}
+    <text className="chart-label" x="13" y={height / 2} transform={`rotate(-90 13 ${height / 2})`}>VP</text><text className="chart-label" x={width / 2} y={height - 1}>ход</text>
+  </svg></div>;
+}
+
 export default function App() {
   const [bots, setBots] = useState(2);
   const [client, setClient] = useState(null);
@@ -195,6 +219,6 @@ export default function App() {
     </section>
     <section className="hand"><div className="fan">{me?.hand?.map((card) => { const canRespond = responseCards.has(baseId(card.id)); return <Card card={card} key={card.id} dim={G.response ? !canRespond : (!active || !!G.pending)} onClick={() => G.pending?.kind === 'discard_down_to_7' ? client.moves.discardFromHandDownTo7(card.id) : play(card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div></section>
     {preview && <div className="card-preview" onClick={() => setPreview(null)}><div className="preview-card" onClick={(event) => event.stopPropagation()}><img src={preview.card.img} alt={preview.card.name || preview.card.id} /><button onClick={() => { preview.action?.(); setPreview(null); }}>Выбрать</button><small>Нажмите вне карты, чтобы закрыть</small></div></div>}
-    {winner && <div className="ending"><div><p>Партия окончена</p><h2>{winner.id === '0' ? 'Вы победили' : `${winner.name} побеждает`}</h2><strong>{score(winner)} VP</strong><button onClick={start}>Ещё одну</button></div></div>}
+    {winner && <div className="ending"><div><p>Партия окончена</p><h2>{winner.id === '0' ? 'Вы победили' : `${winner.name} побеждает`}</h2><strong>{score(winner)} VP</strong><ScoreChart history={G.history} players={G.players.filter((player) => player.active)} /><button onClick={start}>Ещё одну</button></div></div>}
   </main>;
 }
