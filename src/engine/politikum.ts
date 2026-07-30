@@ -2481,6 +2481,22 @@ export const PolitikumGame = {
           if (ownerId !== String(p.id)) return;
         }
         if (pend) {
+          // Katz: bots deterministically discard up to three cards after drawing.
+          // This used to have no bot resolver, leaving the turn permanently pending.
+          if (pend.kind === 'persona_16_discard3_from_hand' && String(pend.playerId) === String(p.id)) {
+            const drops = (p.hand || []).splice(0, Math.min(3, (p.hand || []).length));
+            for (const drop of drops) {
+              if (!drop) continue;
+              G.discard.push(drop);
+              if ((drop as any).type === 'persona') persona44OnPersonaDiscarded(G);
+            }
+            (G as any).pending = null;
+            recalcPassives(G);
+            G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}) сбросил ${drops.length} карт(ы) после добора 3.`);
+            G.botNextActAtMs = nowMs() + 400;
+            return;
+          }
+
           // token placement
           if (pend.kind === 'place_tokens_plus_vp' && String(pend.playerId) === String(p.id)) {
             const myCoal = (p.coalition || []).filter((c: any) => c && c.type === 'persona');
