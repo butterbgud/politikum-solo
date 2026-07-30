@@ -2518,10 +2518,11 @@ export const PolitikumGame = {
             return;
           }
 
-          // persona_3 choice: prefer discarding a leftwing persona if any exist, else option B.
+          // persona_3 choice: bots only discard an opponent's left-wing persona;
+          // if none is available they take option B instead of hurting themselves.
           if (pend.kind === 'persona_3_choice' && String(pend.playerId) === String(p.id)) {
             try {
-              const owners = (G.players || []).filter((pp: any) => (pp.coalition || []).some((c: any) => c.type === 'persona' && Array.isArray(c.tags) && c.tags.includes('faction:leftwing') && !c.shielded));
+              const owners = (G.players || []).filter((pp: any) => String(pp.id) !== String(p.id) && (pp.coalition || []).some((c: any) => c.type === 'persona' && Array.isArray(c.tags) && c.tags.includes('faction:leftwing') && !c.shielded));
               const owner = owners[0];
               if (owner) {
                 const j = (owner.coalition || []).findIndex((c: any) => c.type === 'persona' && Array.isArray(c.tags) && c.tags.includes('faction:leftwing') && !c.shielded);
