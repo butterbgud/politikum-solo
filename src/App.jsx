@@ -98,7 +98,7 @@ function englishLog(line) {
   });
 }
 
-function Card({ card, language, onClick, onPreview, dim = false }) {
+function Card({ card, language, onClick, onPreview, dim = false, selected = false }) {
   if (!card) return null;
   const plusTokens = Number(card.plusTokens ?? Math.max(0, Number(card.vpDelta || 0)));
   const minusTokens = Number(card.minusTokens ?? Math.max(0, -Number(card.vpDelta || 0)));
@@ -106,7 +106,7 @@ function Card({ card, language, onClick, onPreview, dim = false }) {
     if (window.matchMedia('(hover: none), (pointer: coarse)').matches) onPreview?.(card, onClick);
     else onClick?.();
   };
-  return <button className={`card ${dim ? 'dim' : ''}`} onClick={inspectOrPlay} title={`${card.name || baseId(card.id)} · ${card.vp ?? 0} VP`}>
+  return <button className={`card ${dim ? 'dim' : ''} ${selected ? 'selected' : ''}`} onClick={inspectOrPlay} title={`${card.name || baseId(card.id)} · ${card.vp ?? 0} VP`}>
     {card.shieldedBy === 'action_13' && <img className="white-coat" src={cardImage({ img: '/cards/action_13.webp' }, language)} alt="White Coat" />}
     <img src={cardImage(card, language)} alt={card.name || card.id} />
     {card.type === 'persona' && <span className="card-stats"><b className="vp">{card.vp ?? 0}</b>{plusTokens > 0 && <i className="token-plus">+{plusTokens}</i>}{minusTokens > 0 && <i className="token-minus">−{minusTokens}</i>}</span>}
@@ -207,6 +207,7 @@ export default function App() {
   const [bugText, setBugText] = useState('');
   const [bugStatus, setBugStatus] = useState('');
   const [actionNotice, setActionNotice] = useState(null);
+  const [katzSelected, setKatzSelected] = useState([]);
   const clientRef = useRef(null);
   const actionNoticeRef = useRef(null);
 
@@ -253,6 +254,10 @@ export default function App() {
     const timer = setTimeout(() => setActionNotice(null), 3000);
     return () => clearTimeout(timer);
   }, [G?.lastAction?.id, G?.response?.playedBy, G?.pending?.targetId]);
+
+  useEffect(() => {
+    if (G?.pending?.kind !== 'persona_16_discard3_from_hand') setKatzSelected([]);
+  }, [G?.pending?.kind, G?.pending?.sourceCardId]);
 
   const play = (card) => {
     // Persona responses keep their source ability pending until the window
@@ -353,7 +358,9 @@ export default function App() {
     : G.response.kind === 'cancel_persona' && baseId(G.response.personaCard?.id || '') !== 'persona_33' ? ['action_8'] : []) : []);
   const handDecisionPending = ['persona_16_discard3_from_hand', 'persona_17_pick_persona_from_hand', 'event_12b_discard_from_hand', 'discard_down_to_7'].includes(G.pending?.kind);
   const fullHandVisible = active && !G.response && !G.pending;
-  const visibleHand = fullHandVisible || handDecisionPending ? (me?.hand || []) : (me?.hand || []).filter((card) => responseCards.has(baseId(card.id)));
+  const katzDiscardPending = G.pending?.kind === 'persona_16_discard3_from_hand' && String(G.pending.playerId) === '0';
+  const katzDiscardCount = Math.min(3, me?.hand?.length || 0);
+  const visibleHand = katzDiscardPending ? [] : (fullHandVisible || handDecisionPending ? (me?.hand || []) : (me?.hand || []).filter((card) => responseCards.has(baseId(card.id))));
   const arnoOpponents = G.players.filter((player) => player.active && player.id !== '0');
   const arnoTarget = G.pending?.kind === 'persona_17_pick_persona_from_hand'
     ? G.players.find((player) => String(player.id) === String(G.pending.targetId))
@@ -376,6 +383,7 @@ export default function App() {
       <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button>{G.pending && String(G.pending.playerId ?? G.pending.attackerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>{ui.auto}</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : ui.playAfterDraw}</small></aside>
     </section>
     {G.pending?.kind === 'persona_3_choice' && String(G.pending.playerId) === '0' && <section className="svtv-choice"><b>SVTV</b><div><button onClick={() => client.moves.persona3ChooseOption('b')}>{language === 'en' ? 'Take −1: remove every +1 from left-wing residents' : 'Взять −1: снять все +1 с левых'}</button><small>{language === 'en' ? 'Or click a displayed left-wing resident to take −1 and discard it.' : 'Или нажмите на показанного левого персонажа: взять −1 и сбросить его.'}</small></div></section>}
+    {katzDiscardPending && <div className="discard-picker-modal"><section className="discard-picker katz-picker"><b>{language === 'en' ? `Katz — choose ${katzDiscardCount} cards to discard` : `Кац — выберите ${katzDiscardCount} карты для сброса`}</b><strong>{language === 'en' ? `${katzSelected.length}/${katzDiscardCount} cards selected for discard` : `Выбрано для сброса: ${katzSelected.length}/${katzDiscardCount}`}</strong><div className="fan">{(me?.hand || []).map((card) => { const selected = katzSelected.includes(card.id); return <Card card={card} language={language} key={card.id} selected={selected} dim={!selected && katzSelected.length >= katzDiscardCount} onClick={() => setKatzSelected((chosen) => selected ? chosen.filter((id) => id !== card.id) : chosen.length < katzDiscardCount ? [...chosen, card.id] : chosen)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div><button className="katz-confirm" disabled={katzSelected.length !== katzDiscardCount} onClick={() => client.moves.persona16Discard3FromHand(katzSelected[0], katzSelected[1], katzSelected[2])}>{language === 'en' ? 'Discard selected cards' : 'Сбросить выбранные карты'}</button></section></div>}
     {G.pending?.kind === 'persona_17_pick_opponent' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker arno-picker"><b>{language === 'en' ? 'Arno — choose an opponent to inspect' : 'Арно — выберите соперника, чью руку посмотреть'}</b><div className="arno-targets">{arnoOpponents.map((player) => <button key={player.id} onClick={() => client.moves.persona17PickOpponent(player.id)}>{player.name}</button>)}</div></section></div>}
     {arnoTarget && <div className="discard-picker-modal"><section className="discard-picker arno-picker"><b>{language === 'en' ? `Arno — ${arnoTarget.name}'s hand` : `Арно — рука игрока ${arnoTarget.name}`}</b><small>{language === 'en' ? 'Choose one persona to take into your hand.' : 'Выберите персону, которую хотите забрать в руку.'}</small><div className="fan">{(arnoTarget.hand || []).map((card) => <Card card={card} language={language} key={card.id} dim={card.type !== 'persona'} onClick={() => { if (card.type === 'persona') client.moves.persona17StealPersonaFromHand(card.id); }} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
     {G.pending?.kind === 'action_18_pick_persona_from_discard' && String(G.pending.playerId ?? G.pending.attackerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? 'Choose a discarded resident' : 'Выберите персонажа из сброса'}</b><div className="fan">{G.discard.filter((card) => card.type === 'persona' && baseId(card.id) !== 'persona_31').map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.pickPersonaFromDiscardForAction18(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
