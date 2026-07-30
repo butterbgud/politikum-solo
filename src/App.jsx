@@ -206,7 +206,9 @@ export default function App() {
   const [bugOpen, setBugOpen] = useState(false);
   const [bugText, setBugText] = useState('');
   const [bugStatus, setBugStatus] = useState('');
+  const [actionNotice, setActionNotice] = useState(null);
   const clientRef = useRef(null);
+  const actionNoticeRef = useRef(null);
 
   const start = () => {
     clientRef.current?.stop?.();
@@ -239,6 +241,18 @@ export default function App() {
     const close = setTimeout(() => client.moves.skipResponseWindow(), left + 40);
     return () => { clearInterval(tick); clearTimeout(close); };
   }, [client, G?.response, G?.gameOver]);
+
+  useEffect(() => {
+    const action = G?.lastAction;
+    if (!action || actionNoticeRef.current === action.id) return undefined;
+    actionNoticeRef.current = action.id;
+    const isBotAction = String(G.response?.playedBy || '') !== '0';
+    const targetsYou = String(G.pending?.targetId || '') === '0';
+    if (!isBotAction || !targetsYou) return undefined;
+    setActionNotice(action.name || action.text || baseId(action.id));
+    const timer = setTimeout(() => setActionNotice(null), 3000);
+    return () => clearTimeout(timer);
+  }, [G?.lastAction?.id, G?.response?.playedBy, G?.pending?.targetId]);
 
   const play = (card) => {
     // Persona responses keep their source ability pending until the window
@@ -338,7 +352,8 @@ export default function App() {
     ? ['action_6', ...(String(G.pending?.targetId) === '0' ? ['action_14'] : [])]
     : G.response.kind === 'cancel_persona' && baseId(G.response.personaCard?.id || '') !== 'persona_33' ? ['action_8'] : []) : []);
   const handDecisionPending = ['persona_16_discard3_from_hand', 'persona_17_pick_persona_from_hand', 'event_12b_discard_from_hand', 'discard_down_to_7'].includes(G.pending?.kind);
-  const visibleHand = active || handDecisionPending ? (me?.hand || []) : (me?.hand || []).filter((card) => responseCards.has(baseId(card.id)));
+  const fullHandVisible = active && !G.response && !G.pending;
+  const visibleHand = fullHandVisible || handDecisionPending ? (me?.hand || []) : (me?.hand || []).filter((card) => responseCards.has(baseId(card.id)));
   const arnoOpponents = G.players.filter((player) => player.active && player.id !== '0');
   const arnoTarget = G.pending?.kind === 'persona_17_pick_persona_from_hand'
     ? G.players.find((player) => String(player.id) === String(G.pending.targetId))
@@ -347,6 +362,7 @@ export default function App() {
     <header><div><p>POLITIKUM · SOLO</p><h1>{ui.salon}</h1><small className="version">#{BUILD_VERSION}</small></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div><div className="header-actions"><button className="report-button" onClick={() => { setBugStatus(''); setBugOpen(true); }}>{ui.reportBug}</button><button onClick={start}>{ui.newGame}</button></div></header>
     {G.pending && <div className="prompt">{pendingText(G.pending, language)}</div>}
     {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · play ${G.response.kind === 'cancel_action' ? 'Volunteering or another action-cancel card' : 'Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · сыграйте ${G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.`}</div>}
+    {actionNotice && <div className="action-notice">{language === 'en' ? `“${actionNotice}” was played against you` : `Против вас сыграли «${actionNotice}»`}</div>}
     {G.response?.persona8Swap?.playerId === '0' && <button className="persona8-response" onClick={() => client.moves.persona8SwapWithPlayedPersona()}>{language === 'en' ? `Swap Persona 8 for ${G.response.personaCard?.name || 'the played resident'}` : `Поменять Персону 8 на ${G.response.personaCard?.name || 'сыгранного персонажа'}`}</button>}
     <section className="table">
       <aside className="log"><b>{ui.log}</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{language === 'en' ? englishLog(line) : line}</small>)}</aside>
