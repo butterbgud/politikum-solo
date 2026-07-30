@@ -159,6 +159,10 @@ function isSvtvTarget(card) {
   return card.type === 'persona' && !card.shielded && card.tags?.includes('faction:leftwing');
 }
 
+function isRoizmanTarget(card) {
+  return card.type === 'persona' && !card.shielded;
+}
+
 function milovChoices(G) {
   const me = G?.players?.find((player) => player.id === '0');
   if (!me) return [];
@@ -288,6 +292,7 @@ export default function App() {
     else if (pending.kind === 'action_9_discard_persona' && isAction9Target(pending, owner, card)) client.moves.discardFromCoalition(id);
     else if (pending.kind === 'action_7_block_persona') client.moves.blockPersonaForAction7(owner.id, id);
     else if (pending.kind === 'action_13_shield_persona' && owner.id === '0') client.moves.shieldPersonaForAction13(id);
+    else if (pending.kind === 'discard_one_persona_from_any_coalition' && isRoizmanTarget(card)) client.moves.discardPersonaFromCoalition(owner.id, id);
     else if (pending.kind === 'action_17_choose_opponent_persona' && owner.id !== '0') client.moves.applyAction17ToPersona(id);
     else if (pending.kind === 'persona_3_choice' && isSvtvTarget(card)) client.moves.persona3ChooseOption('a', owner.id, id);
     else if (pending.kind === 'persona_5_pick_liberal' && isPevchihTarget(owner, card)) client.moves.persona5PickLiberal(owner.id, id);
@@ -377,7 +382,8 @@ export default function App() {
         const selectingSvtv = G.pending?.kind === 'persona_3_choice' && String(G.pending.playerId) === '0';
         const selectingPevchih = G.pending?.kind === 'persona_5_pick_liberal' && String(G.pending.playerId) === '0';
         const selectingAction9 = G.pending?.kind === 'action_9_discard_persona' && String(G.pending.playerId) === '0';
-        const visibleCards = selectingSvtv ? player.coalition.filter(isSvtvTarget) : selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : selectingAction9 ? player.coalition.filter((card) => isAction9Target(G.pending, player, card)) : player.coalition;
+        const selectingRoizman = G.pending?.kind === 'discard_one_persona_from_any_coalition' && String(G.pending.playerId) === '0';
+        const visibleCards = selectingSvtv ? player.coalition.filter(isSvtvTarget) : selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : selectingAction9 ? player.coalition.filter((card) => isAction9Target(G.pending, player, card)) : selectingRoizman ? player.coalition.filter(isRoizmanTarget) : player.coalition;
         return <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? ui.you : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{visibleCards.map((card) => <Card card={card} language={language} key={card.id} onClick={() => resolveClick(player, card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></article>;
       })}</section>
       <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button>{G.pending && String(G.pending.playerId ?? G.pending.attackerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>{ui.auto}</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : ui.playAfterDraw}</small></aside>

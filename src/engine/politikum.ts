@@ -2481,6 +2481,33 @@ export const PolitikumGame = {
           if (ownerId !== String(p.id)) return;
         }
         if (pend) {
+          // Roizman: bots discard the strongest eligible opponent persona,
+          // falling back to any eligible persona only when necessary.
+          if (pend.kind === 'discard_one_persona_from_any_coalition' && String(pend.playerId) === String(p.id)) {
+            const owners = [...(G.players || [])].sort((a: any, b: any) => Number(String(b.id) !== String(p.id)) - Number(String(a.id) !== String(p.id)));
+            let owner: any = null;
+            let index = -1;
+            let bestVp = -Infinity;
+            for (const candidate of owners) {
+              for (let i = 0; i < (candidate.coalition || []).length; i++) {
+                const card: any = candidate.coalition[i];
+                if (!card || card.type !== 'persona' || card.shielded) continue;
+                const vp = Number(card.vp || 0);
+                if (vp > bestVp) { owner = candidate; index = i; bestVp = vp; }
+              }
+              if (owner && String(owner.id) !== String(p.id)) break;
+            }
+            if (owner && index >= 0) {
+              const [drop] = owner.coalition.splice(index, 1);
+              if (drop) { G.discard.push(drop); persona44OnPersonaDiscarded(G); }
+              G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}) сбросил ${drop?.name || drop?.id} из коалиции ${owner.name}.`);
+            }
+            (G as any).pending = null;
+            recalcPassives(G);
+            G.botNextActAtMs = nowMs() + 400;
+            return;
+          }
+
           // Katz: bots deterministically discard up to three cards after drawing.
           // This used to have no bot resolver, leaving the turn permanently pending.
           if (pend.kind === 'persona_16_discard3_from_hand' && String(pend.playerId) === String(p.id)) {
