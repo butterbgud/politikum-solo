@@ -116,7 +116,7 @@ function Card({ card, language, onClick, onPreview, dim = false, selected = fals
 
 function pendingText(pending, language) {
   const copy = language === 'en' ? {
-    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in an opponent coalition.', action_17_choose_opponent_persona: 'Choose an opponent resident.', action_18_pick_persona_from_discard: 'Choose a discarded resident to return to your hand.', persona_3_choice: 'SVTV: discard a displayed left-wing resident, or use the SVTV panel to remove all their +1 tokens.', persona_23_choose_self_inflict_draw: 'Persona 23: choose −1, −2, or −3 VP tokens, then draw that many cards.', persona_33_choose_faction: 'Sobchak: choose a faction. She gains +1 for each resident of that faction in your coalition, including herself.', persona_34_guess_topdeck: 'Milov: name the next persona in the deck for an immediate win.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
+    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in an opponent coalition.', action_17_choose_opponent_persona: 'Choose an opponent resident.', action_18_pick_persona_from_discard: 'Choose a discarded resident to return to your hand.', persona_3_choice: 'SVTV: discard a displayed left-wing resident, or use the SVTV panel to remove all their +1 tokens.', persona_32_pick_bounce_target: 'Plyushchev: choose a resident in your coalition to return to your hand.', persona_23_choose_self_inflict_draw: 'Persona 23: choose −1, −2, or −3 VP tokens, then draw that many cards.', persona_33_choose_faction: 'Sobchak: choose a faction. She gains +1 for each resident of that faction in your coalition, including herself.', persona_34_guess_topdeck: 'Milov: name the next persona in the deck for an immediate win.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
   } : {
     place_tokens_plus_vp: 'Выберите персонажа в своей коалиции для жетонов.',
     action_4_discard: 'Выберите карту из своей коалиции для сброса.',
@@ -126,6 +126,7 @@ function pendingText(pending, language) {
     action_17_choose_opponent_persona: 'Выберите персонажа соперника.',
     action_18_pick_persona_from_discard: 'Выберите персонажа из сброса, чтобы вернуть его в руку.',
     persona_3_choice: 'SVTV: сбросьте показанного левого персонажа или используйте панель SVTV, чтобы снять со всех левых +1 жетоны.',
+    persona_32_pick_bounce_target: 'Плющев: выберите персону в своей коалиции, чтобы вернуть её в руку.',
     persona_23_choose_self_inflict_draw: 'Персона 23: выберите −1, −2 или −3 жетона VP и возьмите столько же карт.',
     persona_33_choose_faction: 'Собчак: выберите фракцию. Она получит +1 за каждого персонажа этой фракции в вашей коалиции, включая себя.',
     persona_34_guess_topdeck: 'Милов: назовите следующего персонажа в колоде для мгновенной победы.',
@@ -161,6 +162,10 @@ function isSvtvTarget(card) {
 
 function isRoizmanTarget(card) {
   return card.type === 'persona' && !card.shielded;
+}
+
+function isPlyushchevTarget(owner, card) {
+  return owner.id === '0' && card.type === 'persona';
 }
 
 function milovChoices(G) {
@@ -293,6 +298,7 @@ export default function App() {
     else if (pending.kind === 'action_7_block_persona') client.moves.blockPersonaForAction7(owner.id, id);
     else if (pending.kind === 'action_13_shield_persona' && owner.id === '0') client.moves.shieldPersonaForAction13(id);
     else if (pending.kind === 'discard_one_persona_from_any_coalition' && isRoizmanTarget(card)) client.moves.discardPersonaFromCoalition(owner.id, id);
+    else if (pending.kind === 'persona_32_pick_bounce_target' && isPlyushchevTarget(owner, card)) client.moves.persona32BounceToHand(id);
     else if (pending.kind === 'action_17_choose_opponent_persona' && owner.id !== '0') client.moves.applyAction17ToPersona(id);
     else if (pending.kind === 'persona_3_choice' && isSvtvTarget(card)) client.moves.persona3ChooseOption('a', owner.id, id);
     else if (pending.kind === 'persona_5_pick_liberal' && isPevchihTarget(owner, card)) client.moves.persona5PickLiberal(owner.id, id);
@@ -383,7 +389,8 @@ export default function App() {
         const selectingPevchih = G.pending?.kind === 'persona_5_pick_liberal' && String(G.pending.playerId) === '0';
         const selectingAction9 = G.pending?.kind === 'action_9_discard_persona' && String(G.pending.playerId) === '0';
         const selectingRoizman = G.pending?.kind === 'discard_one_persona_from_any_coalition' && String(G.pending.playerId) === '0';
-        const visibleCards = selectingSvtv ? player.coalition.filter(isSvtvTarget) : selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : selectingAction9 ? player.coalition.filter((card) => isAction9Target(G.pending, player, card)) : selectingRoizman ? player.coalition.filter(isRoizmanTarget) : player.coalition;
+        const selectingPlyushchev = G.pending?.kind === 'persona_32_pick_bounce_target' && String(G.pending.playerId) === '0';
+        const visibleCards = selectingSvtv ? player.coalition.filter(isSvtvTarget) : selectingPevchih ? player.coalition.filter((card) => isPevchihTarget(player, card)) : selectingAction9 ? player.coalition.filter((card) => isAction9Target(G.pending, player, card)) : selectingRoizman ? player.coalition.filter(isRoizmanTarget) : selectingPlyushchev ? player.coalition.filter((card) => isPlyushchevTarget(player, card)) : player.coalition;
         return <article className={player.id === '0' ? 'player human' : 'player'} key={player.id}><div className="player-head"><b>{player.id === '0' ? ui.you : player.name}</b><strong>{score(player)} VP</strong></div><div className="coalition">{visibleCards.map((card) => <Card card={card} language={language} key={card.id} onClick={() => resolveClick(player, card)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></article>;
       })}</section>
       <aside className="controls"><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button>{G.pending && String(G.pending.playerId ?? G.pending.attackerId) === '0' && <button className="resolve" onClick={resolveFirstChoice}>{ui.auto}</button>}<small>{G.response ? `Окно ответа: ${responseSeconds}с` : ui.playAfterDraw}</small></aside>
