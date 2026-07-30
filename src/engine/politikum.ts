@@ -560,8 +560,23 @@ function maybeEndAfterRound(G: PolitikumState, ctx: any, events: any) {
 }
 
 const nowMs = () => Date.now();
-const RESPONSE_ACTION_MS = 5000; // compact solo response window for action_6/action_14
-const RESPONSE_PERSONA_MS = 5000; // compact solo response window for action_8 / persona swaps
+const RESPONSE_HUMAN_MS = 5000;
+const RESPONSE_BOT_MS = 1000;
+
+// A human deserves time to read and react; bot-only windows are merely a
+// pacing beat, so they should never make solo play feel like network latency.
+function responseWindowMs(G: PolitikumState, kind: 'cancel_action' | 'cancel_persona', playedBy: string, persona8Swap?: any) {
+  const human: any = (G.players || []).find((p: any) => String(p.id) === '0' && p.active);
+  if (!human || String(playedBy) === '0') return RESPONSE_BOT_MS;
+  const hasReaction = kind === 'cancel_persona'
+    ? (human.hand || []).some((card: any) => baseId(String(card.id)) === 'action_8')
+    : (human.hand || []).some((card: any) => {
+        const id = baseId(String(card.id));
+        return id === 'action_6' || id === 'action_14';
+      });
+  const hasPersona8Swap = String(persona8Swap?.playerId || '') === '0';
+  return hasReaction || hasPersona8Swap ? RESPONSE_HUMAN_MS : RESPONSE_BOT_MS;
+}
 const MAX_COALITION = 7;
 
 function responseExpired(G: PolitikumState) {
@@ -3128,11 +3143,11 @@ export const PolitikumGame = {
               kind: 'cancel_persona',
               playedBy: String(p.id),
               personaCard: c,
-              expiresAtMs: nowMs() + RESPONSE_PERSONA_MS,
+              expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_persona', String(p.id), persona8Swap),
               persona8Swap,
             };
             // Prevent other bots from immediately overwriting the cancel target.
-            (G as any).botPauseUntilMs = nowMs() + RESPONSE_PERSONA_MS;
+            (G as any).botPauseUntilMs = Number((G as any).response.expiresAtMs);
 
             // If this play created a bot-owned pending interaction, resolve it on subsequent tick(s) before ending turn.
             G.botNextActAtMs = nowMs() + (G.pending ? 600 : 1100);
@@ -3491,11 +3506,11 @@ export const PolitikumGame = {
           kind: 'cancel_persona',
           playedBy: String(playerID),
           personaCard: c,
-          expiresAtMs: nowMs() + RESPONSE_PERSONA_MS,
+          expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_persona', String(playerID), persona8Swap),
           persona8Swap,
         } as any;
         // Prevent other bots from immediately overwriting the cancel target.
-        (G as any).botPauseUntilMs = nowMs() + RESPONSE_PERSONA_MS;
+        (G as any).botPauseUntilMs = Number((G as any).response.expiresAtMs);
 
         // Abilities (wired via cards.yaml)
         // IMPORTANT: do not resolve on-enter abilities until the cancel window has closed.
@@ -3670,7 +3685,7 @@ export const PolitikumGame = {
           kind: 'cancel_action',
           playedBy: String(playerID),
           actionCard: c,
-          expiresAtMs: nowMs() + RESPONSE_ACTION_MS,
+          expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_action', String(playerID)),
           allowPersona10By,
         } as any;
         G.lastAction = c;
@@ -3735,7 +3750,7 @@ export const PolitikumGame = {
           kind: 'cancel_action',
           playedBy: String(playerID),
           actionCard: c,
-          expiresAtMs: nowMs() + RESPONSE_ACTION_MS,
+          expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_action', String(playerID)),
           allowPersona10By,
         } as any;
         G.lastAction = c;
@@ -3831,7 +3846,7 @@ export const PolitikumGame = {
           kind: 'cancel_action',
           playedBy: String(playerID),
           actionCard: c,
-          expiresAtMs: nowMs() + RESPONSE_ACTION_MS,
+          expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_action', String(playerID)),
         };
         // UI will prompt via pending; avoid noisy/English log line here.
         return;
