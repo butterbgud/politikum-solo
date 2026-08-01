@@ -3454,7 +3454,7 @@ export const PolitikumGame = {
                 G.hasPlayed = false; // still need to play personas
                 G.log.push(`${p.name} разыграл культуру политики в восточной европе: разыграйте до 2-ух персонажей, но каждый выходит с -1`);
               } else {
-                G.log.push(`${p.name} played ACTION ${c.name || c.id}.`);
+                G.log.push(`${p.name} played ${actionTitle(c)}.`);
               }
             } else {
               G.hasPlayed = true;
@@ -4153,7 +4153,7 @@ export const PolitikumGame = {
       G.discard.push(c);
       G.lastAction = c;
       G.hasPlayed = true;
-      G.log.push(`${me.name} played ACTION ${c.name || c.id}.`);
+      G.log.push(`${me.name} played ${actionTitle(c)}.`);
 
       maybeTriggerRoundEnd(G, ctx);
       if (maybeEndAfterRound(G, ctx, events)) return;
