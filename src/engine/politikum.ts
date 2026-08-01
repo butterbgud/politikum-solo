@@ -596,6 +596,42 @@ function responseExpired(G: PolitikumState) {
   return nowMs() >= (Number(r.expiresAtMs || 0) + 3500);
 }
 
+// Action 8 is a scarce response card. Bots should reserve it for a genuinely
+// valuable intervention instead of cancelling every persona that appears.
+function botShouldCancelPersona(G: PolitikumState, response: any) {
+  const card: any = response?.personaCard;
+  if (!card || baseId(String(card.id || '')) === 'persona_33') return false;
+  const bid = baseId(String(card.id || ''));
+  if (bid === 'persona_14') return true; // Roizman: immediate coalition discard.
+  if (Number(card.vp || 0) >= 4) return true;
+
+  const owner: any = (G.players || []).find((pp: any) =>
+    (pp.coalition || []).some((cc: any) => String(cc.id) === String(card.id)));
+  const coalition: any[] = owner?.coalition || [];
+  const at = coalition.findIndex((cc: any) => String(cc.id) === String(card.id));
+
+  // Girkin is especially dangerous when he lands beside Strelkov.
+  if (bid === 'persona_19' && at >= 0) {
+    const neighbours = [coalition[at - 1], coalition[at + 1]];
+    if (neighbours.some((cc: any) => baseId(String(cc?.id || '')) === 'persona_42')) return true;
+  }
+
+  // Nadezhdin is a low-value early play, but worth cancelling late in the
+  // round when coalition space and victory points are becoming decisive.
+  if (bid === 'persona_25') {
+    const largestCoalition = Math.max(0, ...(G.players || []).map((pp: any) => (pp.coalition || []).length));
+    if (G.roundEnding || largestCoalition >= 5 || (G.deck || []).length <= 10) return true;
+  }
+
+  // Shtefanov can invert positive tokens. Cancel him when his owner has a
+  // meaningful positive stack to protect.
+  if (bid === 'persona_21' && owner) {
+    const positive = coalition.reduce((sum: number, cc: any) => sum + Math.max(0, Number(cc?.vpDelta || 0)), 0);
+    if (positive >= 3) return true;
+  }
+  return false;
+}
+
 function expireResponseAndResolveDeferred(G: PolitikumState) {
   try {
     const response: any = (G as any).response;
@@ -2355,7 +2391,10 @@ export const PolitikumGame = {
         if (rr && rr.kind === 'cancel_persona' && !responseExpired(G) && baseId(String(rr.personaCard?.id || '')) !== 'persona_33') {
           const responder: any = (G.players || []).find((pp: any) => {
             const isBot = !!pp?.isBot || String(pp?.name || '').startsWith('[B]');
-            return isBot && String(pp.id) !== String(rr.playedBy) && (pp.hand || []).some((c: any) => c?.type === 'action' && baseId(String(c.id)) === 'action_8');
+            return isBot
+              && String(pp.id) !== String(rr.playedBy)
+              && botShouldCancelPersona(G, rr)
+              && (pp.hand || []).some((c: any) => c?.type === 'action' && baseId(String(c.id)) === 'action_8');
           });
           if (responder) {
             const handIndex = responder.hand.findIndex((c: any) => c?.type === 'action' && baseId(String(c.id)) === 'action_8');
@@ -3305,7 +3344,9 @@ export const PolitikumGame = {
             events.endTurn?.();
             return;
           } else {
-            const idxA = (p.hand || []).findIndex((cc: any) => cc.type === 'action');
+            // Action 8 is a response card, not a useful ordinary play. Keep
+            // it for a valuable persona rather than throwing it away.
+            const idxA = (p.hand || []).findIndex((cc: any) => cc.type === 'action' && baseId(String(cc.id)) !== 'action_8');
             if (idxA >= 0) {
               const c = p.hand[idxA];
               p.hand.splice(idxA, 1);
