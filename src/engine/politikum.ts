@@ -55,6 +55,8 @@ export type PolitikumState = {
   chat?: Array<{ sender: string; text: string }>;
   gameOver?: boolean;
   winnerId?: string | null;
+  winnerIds?: string[];
+  isDraw?: boolean;
   victoryReason?: 'milov_prediction' | null;
   responseTimeSeconds?: 5 | 10;
   handRevealPlayerId?: string | null;
@@ -509,20 +511,18 @@ function persona38OnEventPlayed(G: PolitikumState, eventCard: any) {
 }
 
 function endGameNow(G: PolitikumState, ctx: any, events: any) {
-  let best = null;
-  let bestScore = -1;
-  for (const pp of (G.players || [])) {
-    const sc = scorePlayer(pp);
-    if (sc > bestScore) {
-      bestScore = sc;
-      best = pp;
-    }
-  }
+  const activePlayers = (G.players || []).filter((pp: any) => pp.active !== false);
+  const bestScore = activePlayers.reduce((best: number, pp: any) => Math.max(best, scorePlayer(pp)), 0);
+  const winners = activePlayers.filter((pp: any) => scorePlayer(pp) === bestScore);
+  const best = winners[0] || null;
+  const isDraw = winners.length > 1;
   G.gameOver = true;
-  G.winnerId = best ? String(best.id) : null;
+  G.winnerId = isDraw ? null : (best ? String(best.id) : null);
+  G.winnerIds = winners.map((pp: any) => String(pp.id));
+  G.isDraw = isDraw;
   G.victoryReason = null;
-  const winnerPlayerId = best ? String(best.id) : null;
-  const winnerName = best ? String(best.name || best.id) : null;
+  const winnerPlayerId = isDraw ? null : (best ? String(best.id) : null);
+  const winnerName = isDraw ? null : (best ? String(best.name || best.id) : null);
 
   // Ensure score history includes the FINAL state (UI chart reads G.history).
   try {
@@ -531,7 +531,9 @@ function endGameNow(G: PolitikumState, ctx: any, events: any) {
     (G.history ||= []).push({ turn: Number(ctx?.turn || 0), scores });
   } catch {}
 
-  G.log.push(`Игра окончена. Победитель: ${(winnerName || best?.id)} (${bestScore} vp).`);
+  G.log.push(isDraw
+    ? `Игра окончена. Ничья: ${winners.map((pp: any) => pp.name || pp.id).join(', ')} (${bestScore} vp).`
+    : `Игра окончена. Победитель: ${(winnerName || best?.id)} (${bestScore} vp).`);
   // Write into ctx.gameover (and metadata.gameover) for admin/stat harvesting.
   events.endGame?.({ winnerPlayerId, winnerName });
 }
@@ -1112,6 +1114,8 @@ export const PolitikumGame = {
       G.response = null;
       G.gameOver = false;
       G.winnerId = null;
+      G.winnerIds = [];
+      G.isDraw = false;
       G.victoryReason = null;
       G.roundEnding = false;
       G.roundEndTurn = null;
