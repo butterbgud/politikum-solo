@@ -1467,8 +1467,9 @@ export const PolitikumGame = {
     },
 
     // Hand limit: if you end turn with >7 cards, discard down to 7 by clicking hand cards.
-    discardFromHandDownTo7: ({ G, ctx, playerID }: any, cardId: string) => {
+    discardFromHandDownTo7: ({ G, ctx, playerID, events }: any, cardId: string) => {
       const pend: any = (G as any).pending;
+      const wasHandLimit = pend?.kind === 'discard_down_to_7';
       const me = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       if (!me) return INVALID_MOVE;
 
@@ -1492,8 +1493,38 @@ export const PolitikumGame = {
 
       if (Number((me.hand || []).length) <= 7) {
         (G as any).pending = null;
+        if (wasHandLimit) {
+          if (maybeEndAfterRound(G, ctx, events)) return;
+          events.endTurn?.();
+        }
       }
       recalcPassives(G);
+    },
+
+    discardSelectedDownTo7: ({ G, ctx, playerID, events }: any, cardIds: string[]) => {
+      const pend: any = G.pending;
+      if (!pend || pend.kind !== 'discard_down_to_7' || String(pend.playerId) !== String(playerID)) return INVALID_MOVE;
+      const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
+      if (!me) return INVALID_MOVE;
+      const ids = Array.from(new Set((Array.isArray(cardIds) ? cardIds : []).map(String)));
+      const needed = Math.max(0, (me.hand || []).length - 7);
+      if (ids.length !== needed) return INVALID_MOVE;
+      for (const id of ids) {
+        const idx = (me.hand || []).findIndex((c: any) => String(c.id) === id);
+        if (idx < 0) return INVALID_MOVE;
+      }
+      for (const id of ids) {
+        const idx = me.hand.findIndex((c: any) => String(c.id) === id);
+        const [drop] = me.hand.splice(idx, 1);
+        if (drop) {
+          G.discard.push(drop);
+          if (drop.type === 'persona') persona44OnPersonaDiscarded(G);
+        }
+      }
+      G.pending = null;
+      recalcPassives(G);
+      if (maybeEndAfterRound(G, ctx, events)) return;
+      events.endTurn?.();
     },
 
     discardPersonaFromOwnCoalitionForEvent16: ({ G, playerID }: any, coalitionCardId: string) => {

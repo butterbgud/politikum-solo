@@ -219,6 +219,7 @@ export default function App() {
   const [bugStatus, setBugStatus] = useState('');
   const [actionNotice, setActionNotice] = useState(null);
   const [katzSelected, setKatzSelected] = useState([]);
+  const [handLimitSelected, setHandLimitSelected] = useState([]);
   const [kasparovFirst, setKasparovFirst] = useState(null);
   const [eventReveal, setEventReveal] = useState(null);
   const clientRef = useRef(null);
@@ -284,6 +285,10 @@ export default function App() {
 
   useEffect(() => {
     if (G?.pending?.kind !== 'persona_16_discard3_from_hand') setKatzSelected([]);
+  }, [G?.pending?.kind, G?.pending?.sourceCardId]);
+
+  useEffect(() => {
+    if (G?.pending?.kind !== 'discard_down_to_7') setHandLimitSelected([]);
   }, [G?.pending?.kind, G?.pending?.sourceCardId]);
 
   useEffect(() => {
@@ -421,6 +426,8 @@ export default function App() {
   const fullHandVisible = (active && !G.response && !G.pending) || handRevealActive;
   const katzDiscardPending = G.pending?.kind === 'persona_16_discard3_from_hand' && String(G.pending.playerId) === '0';
   const katzDiscardCount = Math.min(3, me?.hand?.length || 0);
+  const handLimitDiscardCount = Math.max(0, (me?.hand?.length || 0) - 7);
+  const handLimitPending = G.pending?.kind === 'discard_down_to_7' && String(G.pending.playerId) === '0';
   const visibleHand = katzDiscardPending ? [] : (fullHandVisible || handDecisionPending ? (me?.hand || []) : (me?.hand || []).filter((card) => responseCards.has(baseId(card.id))));
   const arnoOpponents = G.players.filter((player) => player.active && player.id !== '0');
   const arnoTarget = G.pending?.kind === 'persona_17_pick_persona_from_hand'
@@ -453,6 +460,7 @@ export default function App() {
     </section>
     {G.pending?.kind === 'persona_3_choice' && String(G.pending.playerId) === '0' && <section className="svtv-choice"><b>SVTV</b><div><button onClick={() => client.moves.persona3ChooseOption('b')}>{language === 'en' ? 'Take −1: remove every +1 from left-wing residents' : 'Взять −1: снять все +1 с левых'}</button><small>{language === 'en' ? 'Or click a displayed left-wing resident to take −1 and discard it.' : 'Или нажмите на показанного левого персонажа: взять −1 и сбросить его.'}</small><button onClick={() => client.moves.persona3Skip()}>{language === 'en' ? 'Skip SVTV ability' : 'Пропустить способность СВТВ'}</button></div></section>}
     {katzDiscardPending && <div className="discard-picker-modal"><section className="discard-picker katz-picker"><b>{language === 'en' ? `Katz — choose ${katzDiscardCount} cards to discard` : `Кац — выберите ${katzDiscardCount} карты для сброса`}</b><strong>{language === 'en' ? `${katzSelected.length}/${katzDiscardCount} cards selected for discard` : `Выбрано для сброса: ${katzSelected.length}/${katzDiscardCount}`}</strong><div className="fan">{(me?.hand || []).map((card) => { const selected = katzSelected.includes(card.id); return <Card card={card} language={language} key={card.id} selected={selected} dim={!selected && katzSelected.length >= katzDiscardCount} onClick={() => setKatzSelected((chosen) => selected ? chosen.filter((id) => id !== card.id) : chosen.length < katzDiscardCount ? [...chosen, card.id] : chosen)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div><button className="katz-confirm" disabled={katzSelected.length !== katzDiscardCount} onClick={() => client.moves.persona16Discard3FromHand(katzSelected[0], katzSelected[1], katzSelected[2])}>{language === 'en' ? 'Discard selected cards' : 'Сбросить выбранные карты'}</button></section></div>}
+    {handLimitPending && <div className="discard-picker-modal"><section className="discard-picker katz-picker"><b>{language === 'en' ? 'End of turn — choose cards to discard' : 'Конец хода — выберите карты для сброса'}</b><small>{language === 'en' ? `You have ${me?.hand?.length || 0} cards. Discard ${handLimitDiscardCount} to keep 7.` : `У вас ${me?.hand?.length || 0} карт. Сбросьте ${handLimitDiscardCount}, чтобы оставить 7.`}</small><strong>{language === 'en' ? `${handLimitSelected.length}/${handLimitDiscardCount} cards selected` : `Выбрано: ${handLimitSelected.length}/${handLimitDiscardCount}`}</strong><div className="fan">{(me?.hand || []).map((card) => { const selected = handLimitSelected.includes(card.id); return <Card card={card} language={language} key={card.id} selected={selected} dim={!selected && handLimitSelected.length >= handLimitDiscardCount} onClick={() => setHandLimitSelected((chosen) => selected ? chosen.filter((id) => id !== card.id) : chosen.length < handLimitDiscardCount ? [...chosen, card.id] : chosen)} onPreview={(picked, action) => setPreview({ card: picked, action })} />; })}</div><button className="katz-confirm" disabled={handLimitSelected.length !== handLimitDiscardCount} onClick={() => client.moves.discardSelectedDownTo7(handLimitSelected)}>{language === 'en' ? 'Discard selected cards' : 'Сбросить выбранные карты'}</button></section></div>}
     {G.pending?.kind === 'persona_17_pick_opponent' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker arno-picker"><b>{language === 'en' ? 'Arno — choose an opponent to inspect' : 'Арно — выберите соперника, чью руку посмотреть'}</b><div className="arno-targets">{arnoOpponents.map((player) => <button key={player.id} onClick={() => client.moves.persona17PickOpponent(player.id)}>{player.name}</button>)}</div></section></div>}
     {arnoTarget && <div className="discard-picker-modal"><section className="discard-picker arno-picker"><b>{language === 'en' ? `Arno — ${arnoTarget.name}'s hand` : `Арно — рука игрока ${arnoTarget.name}`}</b><small>{language === 'en' ? 'Choose one persona to take into your hand.' : 'Выберите персону, которую хотите забрать в руку.'}</small><div className="fan">{(arnoTarget.hand || []).map((card) => <Card card={card} language={language} key={card.id} dim={card.type !== 'persona'} onClick={() => { if (card.type === 'persona') client.moves.persona17StealPersonaFromHand(card.id); }} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
     {G.pending?.kind === 'action_18_pick_persona_from_discard' && String(G.pending.playerId ?? G.pending.attackerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? 'Choose a discarded resident' : 'Выберите персонажа из сброса'}</b><div className="fan">{G.discard.filter((card) => card.type === 'persona' && baseId(card.id) !== 'persona_31').map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.pickPersonaFromDiscardForAction18(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
