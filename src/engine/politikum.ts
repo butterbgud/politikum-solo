@@ -2439,7 +2439,7 @@ export const PolitikumGame = {
       G.log.push(`${ruYou(me.name)} (${pend.sourceCardId}) сбросил ${toDiscard.length} карт(ы) после добора 3.`);
     },
 
-    // Persona 20: picker from discard (any card type)
+    // Persona 20: pick an action card from discard.
     persona20PickFromDiscard: ({ G, playerID }: any, cardId: string) => {
       const pend: any = (G as any).pending;
       if (!pend || pend.kind !== 'persona_20_pick_from_discard') return INVALID_MOVE;
@@ -2449,7 +2449,7 @@ export const PolitikumGame = {
       if (idx < 0) return INVALID_MOVE;
       const c: any = G.discard[idx];
       if (!c) return INVALID_MOVE;
-      if (c.type === 'event') return INVALID_MOVE;
+      if (c.type !== 'action') return INVALID_MOVE;
 
       G.discard.splice(idx, 1);
       const me = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));

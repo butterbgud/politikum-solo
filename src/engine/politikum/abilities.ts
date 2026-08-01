@@ -478,16 +478,6 @@ export const ABILITIES: Record<string, AbilityFn> = {
       return;
     }
 
-    if (discard.length === 1) {
-      const [only] = discard.splice(0, 1);
-      if (only) {
-        me.hand.push(only);
-        const actionName = String((only as any)?.text || (only as any)?.name || only.name || only.id);
-        G.log.push(`${ruYou(me.name)} используя Быкова взял ${actionName} из сброса.`);
-      }
-      return;
-    }
-
     (G as any).pending = {
       kind: 'persona_20_pick_from_discard',
       playerId: String(me.id),
