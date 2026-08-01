@@ -2552,7 +2552,10 @@ export const PolitikumGame = {
 
         // Resolve deferred persona abilities once cancel window is gone.
         if (maybeResolveDeferredPersona(G)) {
-          G.botNextActAtMs = nowMs() + 600;
+          // The deferred ability may have created a bot-owned picker (for
+          // example Duntsova's token placement). Service it on the next tick
+          // without adding another visible turn-sized pause.
+          G.botNextActAtMs = nowMs() + 100;
           return;
         }
 
@@ -3216,6 +3219,11 @@ export const PolitikumGame = {
           if (String(pend.playerId || pend.attackerId || '') === String(p.id)) {
             (G as any).pending = null;
             recalcPassives(G);
+            if (G.hasDrawn && G.hasPlayed && !(G as any).response) {
+              if (maybeEndAfterRound(G, ctx, events)) return;
+              events.endTurn?.();
+              return;
+            }
           }
         }
 
