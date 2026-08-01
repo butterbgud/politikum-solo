@@ -55,6 +55,7 @@ export type PolitikumState = {
   chat?: Array<{ sender: string; text: string }>;
   gameOver?: boolean;
   winnerId?: string | null;
+  victoryReason?: 'milov_prediction' | null;
 
   // round-end handling: once someone reaches 7 coalition, finish the round
   roundEnding?: boolean;
@@ -504,6 +505,7 @@ function endGameNow(G: PolitikumState, ctx: any, events: any) {
   }
   G.gameOver = true;
   G.winnerId = best ? String(best.id) : null;
+  G.victoryReason = null;
   const winnerPlayerId = best ? String(best.id) : null;
   const winnerName = best ? String(best.name || best.id) : null;
 
@@ -1088,6 +1090,7 @@ export const PolitikumGame = {
       G.response = null;
       G.gameOver = false;
       G.winnerId = null;
+      G.victoryReason = null;
       G.roundEnding = false;
       G.roundEndTurn = null;
       G.lastEvent = null;
@@ -2100,6 +2103,7 @@ export const PolitikumGame = {
       if (guess === actual) {
         G.gameOver = true;
         G.winnerId = String(playerID);
+        G.victoryReason = 'milov_prediction';
         G.log.push(`${actorWithPersona(me, 'persona_34')}: угадал — мгновенная победа для ${ruYou(me.name)}.`);
         events.endGame?.();
       }
@@ -2944,6 +2948,7 @@ export const PolitikumGame = {
               if (guess === actual) {
                 G.gameOver = true;
                 G.winnerId = String(p.id);
+                G.victoryReason = 'milov_prediction';
                 G.log.push(`${actorWithPersona(p, 'persona_34')}: угадал — мгновенная победа для ${ruYou(p.name)}.`);
                 events.endGame?.();
               }
