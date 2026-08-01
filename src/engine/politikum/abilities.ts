@@ -46,12 +46,17 @@ function eventTitle(card: any) {
   return String((card as any)?.text || (card as any)?.name || eventTitleByBaseId(bid) || card?.id || '');
 }
 
+function pauseBotsForEventReveal(G: PolitikumState) {
+  const duration = Number((G as any)?.responseTimeSeconds || 5) === 10 ? 5200 : 2200;
+  (G as any).eventRevealPauseUntilMs = Math.max(Number((G as any).eventRevealPauseUntilMs || 0), Date.now() + duration);
+}
+
 function drawOneFromDeck({ G, me, source }: { G: PolitikumState; me: PolitikumPlayer; source?: string }) {
   const c = G.deck.shift();
   if (!c) return;
   if (c.type === 'event') {
     G.lastEvent = c;
-    (G as any).eventRevealPauseUntilMs = Math.max(Number((G as any).eventRevealPauseUntilMs || 0), Date.now() + 2200);
+    pauseBotsForEventReveal(G);
     const src = String(source || '');
     const srcBid = src.split('#')[0];
     if (srcBid === 'event_15') {
@@ -402,6 +407,7 @@ export const ABILITIES: Record<string, AbilityFn> = {
       const next: any = queuedEvents.shift();
       (G as any).persona16AfterEvents.events = queuedEvents;
       G.lastEvent = next;
+      pauseBotsForEventReveal(G);
       const title = eventTitle(next);
       G.log.push(`${ruYou(me.name)} вытянул Событие "${title}" из способности ${srcName}.`);
       runAbility(next.abilityKey, { G, me, card: next });

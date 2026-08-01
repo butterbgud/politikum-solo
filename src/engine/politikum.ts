@@ -455,8 +455,12 @@ function debugTrace(G: any, event: string, details: Record<string, any> = {}) {
   if (trace.length > 120) trace.splice(0, trace.length - 120);
 }
 
+function eventRevealDurationMs(G: any) {
+  return Number(G?.responseTimeSeconds || 5) === 10 ? 5200 : 2200;
+}
+
 function pauseBotsForEventReveal(G: any) {
-  const until = nowMs() + 2200;
+  const until = nowMs() + eventRevealDurationMs(G);
   G.eventRevealPauseUntilMs = Math.max(Number(G.eventRevealPauseUntilMs || 0), until);
 }
 

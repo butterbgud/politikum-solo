@@ -298,9 +298,10 @@ export default function App() {
   useEffect(() => {
     if (!G?.lastEvent?.id) return undefined;
     setEventReveal(G.lastEvent);
-    const timer = setTimeout(() => setEventReveal(null), 2000);
+    const revealMs = Number(G.responseTimeSeconds || 5) === 10 ? 5000 : 2000;
+    const timer = setTimeout(() => setEventReveal(null), revealMs);
     return () => clearTimeout(timer);
-  }, [G?.lastEvent?.id]);
+  }, [G?.lastEvent?.id, G?.responseTimeSeconds]);
 
   const play = (card) => {
     // Persona responses keep their source ability pending until the window
@@ -421,6 +422,7 @@ export default function App() {
   const responseCards = new Set(canAnswerResponse ? (G.response.kind === 'cancel_action'
     ? ['action_6', ...(String(G.pending?.targetId) === '0' ? ['action_14'] : [])]
     : G.response.kind === 'cancel_persona' && baseId(G.response.personaCard?.id || '') !== 'persona_33' ? ['action_8'] : []) : []);
+  const eventRevealMs = Number(G.responseTimeSeconds || 5) === 10 ? 5000 : 2000;
   const handDecisionPending = ['persona_16_discard3_from_hand', 'persona_17_pick_persona_from_hand', 'event_12b_discard_from_hand', 'discard_down_to_7', 'action_4_discard_cost'].includes(G.pending?.kind);
   const handRevealActive = String(G.handRevealPlayerId || '') === '0' && Number(G.handRevealUntilMs || 0) > clock;
   const fullHandVisible = (active && !G.response && !G.pending) || handRevealActive;
@@ -439,7 +441,7 @@ export default function App() {
     {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · ${G.response.kind === 'cancel_action' ? 'play Volunteering or another action-cancel card' : G.response.kind === 'cancel_persona_ability' ? 'discard Naki to cancel this ability' : 'play Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · ${G.response.kind === 'cancel_action' ? 'сыграйте «Волонтёрство» или карту отмены действия' : G.response.kind === 'cancel_persona_ability' ? 'сбросьте Наки, чтобы отменить способность' : 'сыграйте «Работа на Кремль»'}.`}{canNakiCancel && <button onClick={() => client.moves.persona10CancelFromCoalition()}>{language === 'en' ? 'Discard Naki: cancel effect' : 'Сбросить Наки: отменить эффект'}</button>}</div>}
     {actionNotice && <div className="action-notice">{language === 'en' ? `“${actionNotice}” was played against you` : `Против вас сыграли «${actionNotice}»`}</div>}
     {G.response?.persona8Swap?.playerId === '0' && <button className="persona8-response" onClick={() => client.moves.persona8SwapWithPlayedPersona()}>{language === 'en' ? `Swap Persona 8 for ${G.response.personaCard?.name || 'the played resident'}` : `Поменять Персону 8 на ${G.response.personaCard?.name || 'сыгранного персонажа'}`}</button>}
-    {eventReveal && <div className="event-flyby" aria-live="polite"><img src={cardImage(eventReveal, language)} alt={eventReveal.name || eventReveal.id} /></div>}
+    {eventReveal && <div className="event-flyby" style={{ '--event-flyby-ms': `${eventRevealMs}ms` }} aria-live="polite"><img src={cardImage(eventReveal, language)} alt={eventReveal.name || eventReveal.id} /></div>}
     {G.pending?.kind === 'action_4_discard_cost' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? 'Volunteering — choose a card to discard as the casting cost' : 'Волонтёрство — выберите карту как стоимость розыгрыша'}</b><small>{language === 'en' ? 'The action card has already been played.' : 'Карта действия уже разыграна.'}</small><div className="fan">{(me?.hand || []).map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.action4DiscardCastingCost(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
     {G.pending?.kind === 'action_4_choose_target' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker persona45-choice"><b>{language === 'en' ? 'Volunteering — choose a target player' : 'Волонтёрство — выберите игрока-цель'}</b><small>{language === 'en' ? 'They will discard one card from their coalition.' : 'Он сбросит одну карту из своей коалиции.'}</small><div className="persona45-opponents">{G.players.filter((player) => player.active && player.id !== '0').map((player) => <button key={player.id} onClick={() => client.moves.action4ChooseTarget(player.id)}><strong>{player.name}</strong></button>)}</div></section></div>}
     {G.pending?.kind === 'persona_45_steal_from_opponent' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker persona45-choice"><b>{language === 'en' ? 'Shulman — choose an opponent' : 'Шульман — выберите соперника'}</b><small>{language === 'en' ? 'A random card will be stolen from their hand.' : 'Из его руки будет украдена случайная карта.'}</small><div className="persona45-opponents">{G.players.filter((player) => player.active && player.id !== '0').map((player) => <button key={player.id} onClick={() => client.moves.persona45StealFromOpponent(player.id)}><strong>{player.name}</strong><span>{player.hand.length} {language === 'en' ? 'cards in hand' : 'карт в руке'}</span></button>)}</div></section></div>}
