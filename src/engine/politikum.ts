@@ -1536,8 +1536,14 @@ export const PolitikumGame = {
       G.log.push(`${actorWithPersona(me, 'persona_8')} поменялся с ${played.name || played.id}.`);
       recalcPassives(G);
 
-      // After swap, close the response window.
+      // After swap, close the response window and resolve the played
+      // persona's deferred ability against its new coalition owner.  Without
+      // this handoff, a bot's pre-swap pending ability can remain associated
+      // with the old owner (the classic Lazerson/Roizman limbo).
       (G as any).response = null;
+      try { maybeResolveDeferredPersona(G); } catch {}
+      (G as any).botPauseUntilMs = 0;
+      (G as any).botNextActAtMs = nowMs() + 250;
     },
 
     // Persona 10 (Naki): discard persona_10 from YOUR COALITION to cancel an effect targeting your coalition
