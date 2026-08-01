@@ -56,6 +56,7 @@ export type PolitikumState = {
   gameOver?: boolean;
   winnerId?: string | null;
   victoryReason?: 'milov_prediction' | null;
+  responseTimeSeconds?: 5 | 10;
 
   // round-end handling: once someone reaches 7 coalition, finish the round
   roundEnding?: boolean;
@@ -562,7 +563,6 @@ function maybeEndAfterRound(G: PolitikumState, ctx: any, events: any) {
 }
 
 const nowMs = () => Date.now();
-const RESPONSE_HUMAN_MS = 5000;
 const RESPONSE_BOT_MS = 1000;
 
 // A human deserves time to read and react; bot-only windows are merely a
@@ -577,7 +577,9 @@ function responseWindowMs(G: PolitikumState, kind: 'cancel_action' | 'cancel_per
         return id === 'action_6' || id === 'action_14';
       });
   const hasPersona8Swap = String(persona8Swap?.playerId || '') === '0';
-  return hasReaction || hasPersona8Swap ? RESPONSE_HUMAN_MS : RESPONSE_BOT_MS;
+  return hasReaction || hasPersona8Swap
+    ? Number(G.responseTimeSeconds || 5) * 1000
+    : RESPONSE_BOT_MS;
 }
 const MAX_COALITION = 7;
 
@@ -1049,9 +1051,11 @@ export const PolitikumGame = {
       events.endTurn?.();
     },
 
-    startGame: ({ G, ctx, playerID, events }: any) => {
+    startGame: ({ G, ctx, playerID, events }: any, responseTimeSeconds = 5) => {
       if (String(ctx.phase || '') !== 'lobby') return INVALID_MOVE;
       if (String(playerID) !== '0') return INVALID_MOVE;
+
+      G.responseTimeSeconds = Number(responseTimeSeconds) === 10 ? 10 : 5;
 
       const activeIds = (G.activePlayerIds || []).map(String).filter((id) => {
         const p = (G.players || []).find((pp: any) => String(pp.id) === id);

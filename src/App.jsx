@@ -211,6 +211,7 @@ export default function App() {
   const [clock, setClock] = useState(Date.now());
   const [preview, setPreview] = useState(null);
   const [language, setLanguage] = useState('ru');
+  const [responseTime, setResponseTime] = useState(5);
   const [bugOpen, setBugOpen] = useState(false);
   const [bugText, setBugText] = useState('');
   const [bugStatus, setBugStatus] = useState('');
@@ -227,7 +228,7 @@ export default function App() {
     next.subscribe((snapshot) => setState(snapshot));
     next.start();
     for (let i = 0; i < bots; i++) next.moves.addBot();
-    next.moves.startGame();
+    next.moves.startGame(responseTime);
     clientRef.current = next;
     setClient(next);
   };
@@ -370,7 +371,7 @@ export default function App() {
       setBugText('');
     } catch { setBugStatus('failed'); }
   };
-  if (!client) return <main className="welcome"><div><p>Politikum · solo</p><h1>{language === 'en' ? 'Politics without a server' : 'Политика без сервера'}</h1><div className="language"><button className={language === 'ru' ? 'picked' : ''} onClick={() => setLanguage('ru')}>Русский</button><button className={language === 'en' ? 'picked' : ''} onClick={() => setLanguage('en')}>English</button></div><span>{ui.rivals}</span><div className="picker">{[1, 2, 3, 4].map((n) => <button className={bots === n ? 'picked' : ''} onClick={() => setBots(n)} key={n}>{n}</button>)}</div><button className="start" onClick={start}>{ui.start}</button><small>{ui.intro}</small></div></main>;
+  if (!client) return <main className="welcome"><div><p>Politikum · solo</p><h1>{language === 'en' ? 'Politics without a server' : 'Политика без сервера'}</h1><div className="language"><button className={language === 'ru' ? 'picked' : ''} onClick={() => setLanguage('ru')}>Русский</button><button className={language === 'en' ? 'picked' : ''} onClick={() => setLanguage('en')}>English</button></div><span>{ui.rivals}</span><div className="picker">{[1, 2, 3, 4].map((n) => <button className={bots === n ? 'picked' : ''} onClick={() => setBots(n)} key={n}>{n}</button>)}</div><span>{language === 'en' ? 'Response time' : 'Время ответа'}</span><div className="picker">{[5, 10].map((n) => <button className={responseTime === n ? 'picked' : ''} onClick={() => setResponseTime(n)} key={n}>{n}s</button>)}</div><button className="start" onClick={start}>{ui.start}</button><small>{ui.intro}</small></div></main>;
 
   if (!G) return <main className="welcome"><div>Загрузка колоды…</div></main>;
   const winner = G.gameOver ? (G.players.find((p) => p.id === String(G.winnerId)) || [...G.players].filter((p) => p.active).sort((a, b) => score(b) - score(a))[0]) : null;
