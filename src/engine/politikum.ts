@@ -3063,25 +3063,28 @@ export const PolitikumGame = {
             return;
           }
 
-          // persona_26 purge red_nationalist: discard first available red_nationalist in play.
+          // persona_26 purge red_nationalist: bots choose the sole target
+          // immediately; with several targets, prefer the point leader and
+          // then the target carrying the most stealable +1 tokens.
           if (pend.kind === 'persona_26_pick_red_nationalist' && String(pend.playerId) === String(p.id)) {
             try {
               const self: any = (p.coalition || []).find((c: any) => baseId(String(c.id)) === 'persona_26');
-              let picked = false;
-              for (const owner of (G.players || [])) {
-                const j = (owner.coalition || []).findIndex((c: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded && Array.isArray(c.tags) && c.tags.includes('faction:red_nationalist'));
-                if (j < 0) continue;
-                const target: any = owner.coalition[j];
-                const plus = Math.max(0, Number(target?.vpDelta || 0));
+              const candidates: any[] = (G.players || []).flatMap((owner: any) => (owner.coalition || [])
+                .filter((c: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded && Array.isArray(c.tags) && c.tags.includes('faction:red_nationalist'))
+                .map((card: any) => ({ owner, card, plus: Math.max(0, Number(card.vpDelta || 0)) })));
+              const opponents = candidates.filter((entry) => String(entry.owner.id) !== String(p.id));
+              const pool = opponents.length ? opponents : candidates;
+              pool.sort((a, b) => (scorePlayer(b.owner) - scorePlayer(a.owner)) || (b.plus - a.plus));
+              const picked = pool[0];
+              if (picked) {
+                const { owner, card: target, plus } = picked;
+                const j = owner.coalition.findIndex((c: any) => String(c.id) === String(target.id));
                 owner.coalition.splice(j, 1);
                 G.discard.push(target);
                 if ((target as any).type === 'persona') persona44OnPersonaDiscarded(G);
                 if (plus && self) applyTokenDelta(G, self, plus);
                 G.log.push(`${actorWithPersona(p, 'persona_26')} сбросил ${target?.name || target?.id} и унаследовал ${plus} × +1.`);
-                picked = true;
-                break;
-              }
-              if (!picked) {
+              } else {
                 G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): нет красн.нац. для сброса.`);
               }
             } catch {}
