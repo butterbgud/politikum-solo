@@ -72,7 +72,7 @@ export type PolitikumState = {
     | { kind: 'action_13_shield_persona'; attackerId: string }
     | { kind: 'action_17_choose_opponent_persona'; attackerId: string }
     | { kind: 'action_18_pick_persona_from_discard'; attackerId: string }
-    | { kind: 'place_tokens_plus_vp'; playerId: string; remaining: number; delta: number; sourceCardId: string }
+    | { kind: 'place_tokens_plus_vp'; playerId: string; remaining: number; delta: number; sourceCardId: string; targetCardId?: string }
     | { kind: 'discard_one_persona_from_any_coalition'; playerId: string; sourceCardId: string }
     | { kind: 'persona_3_choice'; playerId: string; sourceCardId: string }
     | { kind: 'persona_5_pick_liberal'; playerId: string; sourceCardId: string }
@@ -2535,17 +2535,18 @@ export const PolitikumGame = {
             recalcPassives(G);
             return;
           }
-          while (Number(pend0.remaining || 0) > 0) {
-            const target: any = coal[0];
-            let dv = Number(pend0.delta || 1);
-            if (target.shielded && dv > 0) dv = Math.max(0, dv - 1);
-            if (dv) applyTokenDelta(G, target, dv);
-            pend0.remaining = Number(pend0.remaining || 0) - 1;
-          }
+          const target: any = coal.find((x: any) => String(x.id) === String(pend0.targetCardId)) || coal[0];
+          pend0.targetCardId = String(target.id);
+          const burst = Math.max(0, Number(pend0.remaining || 0) * Number(pend0.delta || 1));
+          const applied = target.shielded && burst > 0 ? Math.max(0, burst - 1) : burst;
+          if (applied) applyTokenDelta(G, target, applied);
+          pend0.remaining = 0;
           (G as any).pending = null;
           recalcPassives(G);
-          // small pause so UI feels paced
-          G.botNextActAtMs = nowMs() + 900;
+          if (G.hasDrawn && G.hasPlayed && !(G as any).response) {
+            if (maybeEndAfterRound(G, ctx, events)) return;
+            events.endTurn?.();
+          } else G.botNextActAtMs = nowMs() + 900;
           return;
         }
 
@@ -2654,37 +2655,26 @@ export const PolitikumGame = {
           // token placement
           if (pend.kind === 'place_tokens_plus_vp' && String(pend.playerId) === String(p.id)) {
             const myCoal = (p.coalition || []).filter((c: any) => c && c.type === 'persona');
-            const scoreTarget = (c: any) => {
-              const tags = Array.isArray(c?.tags) ? c.tags : [];
-              const immovable = tags.includes('persona:immovable');
-              const shielded = !!c?.shielded;
-              const tok = Number(c?.vpDelta || 0);
-              const nonNegative = tok >= 0;
-              return [shielded ? 1 : 0, immovable ? 1 : 0, nonNegative ? 1 : 0, tok];
-            };
-            const target: any = myCoal.sort((a: any, b: any) => {
-              const as = scoreTarget(a);
-              const bs = scoreTarget(b);
-              for (let i = 0; i < as.length; i++) if (as[i] !== bs[i]) return bs[i] - as[i];
-              return 0;
-            })[0];
+            const target: any = myCoal.find((c: any) => String(c.id) === String(pend.targetCardId)) || myCoal[0];
+            if (target) pend.targetCardId = String(target.id);
             if (target) {
-              let delta = Number(pend.delta || 1);
-              if (target.shielded && delta > 0) delta = Math.max(0, delta - 1);
-              if (delta) {
-                applyTokenDelta(G, target, delta);
-                recalcPassives(G);
-              }
+              const burst = Math.max(0, Number(pend.remaining || 0) * Number(pend.delta || 1));
+              const delta = target.shielded && burst > 0 ? Math.max(0, burst - 1) : burst;
+              if (delta) applyTokenDelta(G, target, delta);
               const srcBid = String(pend.sourceCardId || '').split('#')[0];
               if (Number(pend.remaining || 0) === 4 && srcBid === 'event_10') {
                 G.log.push(`${ruYou(p.name)} распределил четыре +1 токена на ${target.name || target.id}.`);
               }
-              pend.remaining = Number(pend.remaining || 0) - 1;
-              if (Number(pend.remaining || 0) <= 0) (G as any).pending = null;
+              pend.remaining = 0;
+              (G as any).pending = null;
             } else {
               (G as any).pending = null;
             }
-            G.botNextActAtMs = nowMs() + 600;
+            recalcPassives(G);
+            if (!(G as any).pending && G.hasDrawn && G.hasPlayed && !(G as any).response) {
+              if (maybeEndAfterRound(G, ctx, events)) return;
+              events.endTurn?.();
+            } else G.botNextActAtMs = nowMs() + 600;
             return;
           }
 
