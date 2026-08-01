@@ -206,8 +206,22 @@ function scorePlayer(pp: any) {
   return (pp.coalition || []).reduce((s: number, c: any) => s + Number(c.vp ?? (c.baseVp || 0)), 0);
 }
 
+function clearDetachedPersonaTokens(card: any) {
+  if (!card || card.type !== 'persona') return;
+  card.vpDelta = 0;
+  card.plusTokens = 0;
+  card.minusTokens = 0;
+  card.passiveVpDelta = 0;
+  card.vp = Number(card.baseVp ?? 0);
+}
+
 function recalcPassives(G: PolitikumState) {
   const allPlayers = (G.players || []);
+
+  // Tokens belong to a persona only while it is in a coalition. This also
+  // cleans up legacy state when a card is discarded or returned to a hand.
+  for (const p of allPlayers) for (const card of (p.hand || [])) clearDetachedPersonaTokens(card);
+  for (const card of (G.discard || [])) clearDetachedPersonaTokens(card);
 
   const countLeftwing = (cards: any[]) => (cards || []).filter((c: any) => c.type === 'persona' && Array.isArray(c.tags) && c.tags.includes('faction:leftwing')).length;
 
