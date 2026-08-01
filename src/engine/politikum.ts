@@ -57,6 +57,8 @@ export type PolitikumState = {
   winnerId?: string | null;
   victoryReason?: 'milov_prediction' | null;
   responseTimeSeconds?: 5 | 10;
+  handRevealPlayerId?: string | null;
+  handRevealUntilMs?: number | null;
 
   // round-end handling: once someone reaches 7 coalition, finish the round
   roundEnding?: boolean;
@@ -1100,6 +1102,8 @@ export const PolitikumGame = {
       G.victoryReason = null;
       G.roundEnding = false;
       G.roundEndTurn = null;
+      G.handRevealPlayerId = null;
+      G.handRevealUntilMs = null;
       G.lastEvent = null;
       G.lastAction = null;
       G.hasDrawn = false;
@@ -3549,6 +3553,10 @@ export const PolitikumGame = {
 
       // 2nd draw ends your turn immediately (MVP rule)
       if (G.drawsThisTurn >= 2) {
+        if (String(playerID) === '0') {
+          G.handRevealPlayerId = '0';
+          G.handRevealUntilMs = nowMs() + 3000;
+        }
         G.hasPlayed = true;
         if (maybeEndAfterRound(G, ctx, events)) return;
         events.endTurn?.();
