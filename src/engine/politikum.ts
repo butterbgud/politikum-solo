@@ -2381,7 +2381,21 @@ export const PolitikumGame = {
             }
             recalcPassives(G);
             G.log.push(`${responder.name} сыграл «Работа на Кремль» и отменил ${rr.personaCard?.name || rr.personaCard?.id}.`);
-            G.botNextActAtMs = nowMs() + 400;
+            (G as any).botPauseUntilMs = 0;
+            // The played bot had already completed its play, but its turn was
+            // held open while the response window was active.  Finish that
+            // turn immediately after cancellation; otherwise the cancelled
+            // bot can sit forever with hasPlayed=true and no pending move.
+            const cancelledPlayer: any = (G.players || []).find((pp: any) => String(pp.id) === String(rr.playedBy));
+            if (String(ctx.currentPlayer) === String(rr.playedBy)
+              && cancelledPlayer
+              && (!!cancelledPlayer.isBot || String(cancelledPlayer.name || '').startsWith('[B]'))
+              && G.hasDrawn && G.hasPlayed && !(G as any).pending) {
+              if (maybeEndAfterRound(G, ctx, events)) return;
+              events.endTurn?.();
+            } else {
+              G.botNextActAtMs = nowMs() + 250;
+            }
             return;
           }
         }
@@ -3753,6 +3767,7 @@ export const PolitikumGame = {
           } catch (e) {}
 
           const targetName = String((G.response.personaCard as any)?.name || (G.response.personaCard as any)?.text || (G.response.personaCard as any)?.id || 'персонажа');
+          const cancelledPlayerId = String(G.response.playedBy || '');
           G.log.push(`${me.name} обвинил ${targetName} в работе на кремль!`);
           G.response = null;
           // The cancelled bot must be allowed to finish its already-played
@@ -3760,6 +3775,14 @@ export const PolitikumGame = {
           // waiting until the stale response deadline.
           (G as any).botPauseUntilMs = 0;
           (G as any).botNextActAtMs = nowMs() + 250;
+          const cancelledPlayer: any = (G.players || []).find((pp: any) => String(pp.id) === cancelledPlayerId);
+          if (String(ctx.currentPlayer) === cancelledPlayerId
+            && cancelledPlayer
+            && (!!cancelledPlayer.isBot || String(cancelledPlayer.name || '').startsWith('[B]'))
+            && G.hasDrawn && G.hasPlayed && !(G as any).pending) {
+            if (maybeEndAfterRound(G, ctx, events)) return;
+            events.endTurn?.();
+          }
           return;
         }
 
