@@ -73,6 +73,8 @@ export type PolitikumState = {
   // pending interaction (for action cards & persona abilities)
   pending?:
     | { kind: 'action_4_discard'; attackerId: string; targetId: string; sourceCardId: string }
+    | { kind: 'action_4_discard_cost'; playerId: string; sourceCardId: string }
+    | { kind: 'action_4_choose_target'; playerId: string; sourceCardId: string; costCardId: string }
     | { kind: 'action_9_discard_persona'; attackerId: string; playerId: string; targetId: string; sourceCardId: string }
     | { kind: 'action_7_block_persona'; attackerId: string }
     | { kind: 'action_13_shield_persona'; attackerId: string }
@@ -2559,6 +2561,53 @@ export const PolitikumGame = {
           return;
         }
 
+        // Action 4: bots also pay the casting cost and choose a target instead
+        // of leaving the new two-step interaction pending indefinitely.
+        if (pend0 && pend0.kind === 'action_4_discard_cost' && String(pend0.playerId) === String(p.id)) {
+          const cost = (p.hand || [])[0];
+          if (!cost) {
+            (G as any).pending = null;
+            G.botNextActAtMs = nowMs() + 250;
+            return;
+          }
+          p.hand.splice(0, 1);
+          G.discard.push(cost);
+          G.pending = { kind: 'action_4_choose_target', playerId: String(p.id), sourceCardId: String(pend0.sourceCardId), costCardId: String(cost.id) } as any;
+          G.log.push(`${ruYou(p.name)} сбросил ${cost.name || cost.id} как стоимость действия.`);
+          G.botNextActAtMs = nowMs() + 300;
+          return;
+        }
+
+        if (pend0 && pend0.kind === 'action_4_choose_target' && String(pend0.playerId) === String(p.id)) {
+          const target: any = [...(G.players || [])]
+            .filter((pp: any) => pp.active && String(pp.id) !== String(p.id))
+            .sort((a: any, b: any) => scorePlayer(b) - scorePlayer(a))[0];
+          if (!target) {
+            (G as any).pending = null;
+            G.botNextActAtMs = nowMs() + 250;
+            return;
+          }
+          const tid = String(target.id);
+          const actionCard: any = (G.lastAction && baseId(String(G.lastAction.id)) === 'action_4') ? G.lastAction : { id: pend0.sourceCardId, type: 'action' };
+          G.response = {
+            kind: 'cancel_action', playedBy: String(p.id), actionCard,
+            expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_action', String(p.id)),
+            allowPersona10By: (target.coalition || []).some((x: any) => baseId(String(x.id)) === 'persona_10') ? tid : null,
+          } as any;
+          G.pending = { kind: 'action_4_discard', attackerId: String(p.id), targetId: tid, sourceCardId: String(pend0.sourceCardId) } as any;
+          G.log.push(`${ruYou(p.name)} выбрал целью действия ${target.name}.`);
+          if (String(target.name || '').startsWith('[B]')) {
+            const drop = (target.coalition || []).shift();
+            if (drop) { G.discard.push(drop); if (drop.type === 'persona') persona44OnPersonaDiscarded(G); G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`); }
+            G.pending = null;
+            G.response = null;
+            recalcPassives(G);
+            if (maybeEndAfterRound(G, ctx, events)) return;
+            events.endTurn?.();
+          }
+          return;
+        }
+
         // persona_17: pick opponent with most personas in hand, then steal first persona
         if (pend0 && pend0.kind === 'persona_17_pick_opponent' && String(pend0.playerId) === String(p.id)) {
           let best: any = null;
@@ -3851,6 +3900,55 @@ export const PolitikumGame = {
       events.endTurn?.();
     },
 
+    action4DiscardCastingCost: ({ G, playerID }: any, cardId: string) => {
+      const pending: any = G.pending;
+      if (!pending || pending.kind !== 'action_4_discard_cost' || String(pending.playerId) !== String(playerID)) return INVALID_MOVE;
+      const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
+      const idx = (me?.hand || []).findIndex((c: any) => String(c.id) === String(cardId));
+      if (idx < 0) return INVALID_MOVE;
+      const [cost] = me.hand.splice(idx, 1);
+      G.discard.push(cost);
+      G.pending = { kind: 'action_4_choose_target', playerId: String(playerID), sourceCardId: String(pending.sourceCardId), costCardId: String(cost.id) };
+      G.log.push(`${ruYou(me.name)} сбросил ${cost.name || cost.id} как стоимость действия.`);
+    },
+
+    action4ChooseTarget: ({ G, playerID, ctx, events }: any, targetId: string) => {
+      const pending: any = G.pending;
+      if (!pending || pending.kind !== 'action_4_choose_target' || String(pending.playerId) !== String(playerID)) return INVALID_MOVE;
+      const target: any = (G.players || []).find((pp: any) => String(pp.id) === String(targetId) && pp.active);
+      if (!target || String(target.id) === String(playerID)) return INVALID_MOVE;
+      const actor: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
+      const actionCard: any = (G.lastAction && baseId(String(G.lastAction.id)) === 'action_4')
+        ? G.lastAction
+        : { id: pending.sourceCardId, type: 'action' };
+      const tid = String(target.id);
+      const allowPersona10By = (target.coalition || []).some((x: any) => baseId(String(x.id)) === 'persona_10') ? tid : null;
+      G.response = {
+        kind: 'cancel_action',
+        playedBy: String(playerID),
+        actionCard,
+        expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_action', String(playerID)),
+        allowPersona10By,
+      } as any;
+      G.pending = { kind: 'action_4_discard', attackerId: String(playerID), targetId: tid, sourceCardId: String(pending.sourceCardId) };
+      G.log.push(`${ruYou(actor?.name || playerID)} выбрал целью действия ${target.name}.`);
+
+      if (String(target.name || '').startsWith('[B]')) {
+        const drop = (target.coalition || [])[0];
+        if (drop) {
+          target.coalition.splice(0, 1);
+          G.discard.push(drop);
+          if (drop.type === 'persona') persona44OnPersonaDiscarded(G);
+          G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`);
+        } else G.log.push(`${target.name} had no Coalition cards to discard.`);
+        G.pending = null;
+        G.response = null;
+        maybeTriggerRoundEnd(G, ctx);
+        if (maybeEndAfterRound(G, ctx, events)) return;
+        events.endTurn?.();
+      }
+    },
+
     playAction: ({ G, playerID, ctx, events }: any, cardId: string, targetId?: string) => {
       expireResponseAndResolveDeferred(G);
       // Normal play: only active player can play.
@@ -3993,70 +4091,17 @@ export const PolitikumGame = {
       // action_6 / action_8 / action_14 are RESPONSE cards only (out-of-turn). Never playable as normal actions.
       if (base === 'action_6' || base === 'action_8' || base === 'action_14') return INVALID_MOVE;
 
-      // Action 4: target player discards 1 coalition card of their choice
+      // Action 4 is a two-stage action: pay a card from hand, then choose the
+      // opponent. The response window opens only after both choices are made.
       if (base === 'action_4') {
-        const tid = String(targetId ?? '');
-        const target = (G.players || []).find((pp: any) => String(pp.id) === tid);
-        if (!target || tid === String(playerID)) return INVALID_MOVE;
-
-        // play the action itself
+        // The action card itself plus one additional card are required.
+        if ((me.hand || []).length < 2) return INVALID_MOVE;
         me.hand.splice(idx, 1);
-        // response window: allow others to cancel this action with action_6
-        const allowPersona10By = (target.coalition || []).some((x: any) => baseId(String(x.id)) === 'persona_10') ? tid : null;
-        G.response = {
-          kind: 'cancel_action',
-          playedBy: String(playerID),
-          actionCard: c,
-          expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_action', String(playerID)),
-          allowPersona10By,
-        } as any;
+        G.discard.push(c);
         G.lastAction = c;
         G.hasPlayed = true;
-        G.pending = { kind: 'action_4_discard', attackerId: String(playerID), targetId: tid, sourceCardId: String(c.id) };
-        let an = actionTitle(c);
-        // If card has no localized title, actionTitle() falls back to id (e.g. "action_4").
-        // Prefer our manual title map in that case.
-        try {
-          if (/^action_\d+/u.test(String(an))) an = actionTitleByBaseId(baseId(String(c.id))) || an;
-        } catch {}
-        const actorName = ruYou(me.name);
-        G.log.push(`${actorName} разыграл "${an}" на ${target.name}.`);
-
-        // If target is a bot, auto-discard immediately (MVP)
-        if (String(target.name || '').startsWith('[B]')) {
-          const drop = (target.coalition || [])[0];
-          if (drop) {
-            target.coalition.splice(0, 1);
-            G.discard.push(drop);
-            if ((drop as any).type === 'persona') persona44OnPersonaDiscarded(G);
-            G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`);
-          } else {
-            G.log.push(`${target.name} had no Coalition cards to discard.`);
-          }
-          G.pending = null;
-
-          // persona_13 (Venediktov): retaliate after an opponent action targeted your coalition
-          try {
-            const haveP13 = (target.coalition || []).some((cc: any) => baseId(String(cc.id)) === 'persona_13');
-            const attacker = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
-            const attackerHasPersona = !!(attacker?.coalition || []).some((cc: any) => cc.type === 'persona');
-            if (haveP13 && attacker && attackerHasPersona) {
-              // Target is a bot here, so auto-resolve immediately (avoid wedging the human turn).
-              const opts = (attacker.coalition || []).filter((cc: any) => cc && cc.type === 'persona' && baseId(String(cc.id)) !== 'persona_31' && !cc.shielded);
-              if (opts.length) {
-                applyTokenDelta(G, opts[0], -1);
-                recalcPassives(G);
-                G.log.push(`${target.name} (Венедитков): дал -1 на ${opts[0].name || opts[0].id}.`);
-              }
-              // no pending
-            }
-          } catch {}
-
-          maybeTriggerRoundEnd(G, ctx);
-          if (maybeEndAfterRound(G, ctx, events)) return;
-          events.endTurn?.();
-        }
-
+        G.pending = { kind: 'action_4_discard_cost', playerId: String(playerID), sourceCardId: String(c.id) };
+        G.log.push(`${ruYou(me.name)} разыграл "${actionTitleByBaseId(baseId(String(c.id))) || actionTitle(c)}": выберите карту как стоимость розыгрыша.`);
         return;
       }
 
