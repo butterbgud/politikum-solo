@@ -2919,19 +2919,22 @@ export const PolitikumGame = {
             try {
               const self: any = (p.coalition || []).find((c: any) => baseId(String(c.id)) === 'persona_28');
               if (self) {
-                let target: any = null;
-                for (const owner of (G.players || [])) {
-                  for (const cc of (owner.coalition || [])) {
-                    if (!cc || cc.type !== 'persona') continue;
-                    if (baseId(String(cc.id)) === 'persona_31') continue;
-                    if (cc.shielded) continue;
-                    if (Array.isArray(cc.tags) && cc.tags.includes('faction:fbk')) continue;
-                    target = cc;
-                    break;
-                  }
-                  if (target) break;
-                }
-                if (target) {
+                const candidates: any[] = (G.players || [])
+                  .filter((owner: any) => String(owner.id) !== String(p.id) && owner.active)
+                  .flatMap((owner: any) => (owner.coalition || [])
+                    .filter((cc: any) => cc?.type === 'persona' && baseId(String(cc.id)) !== 'persona_31' && !cc.shielded && !(cc.tags || []).includes('faction:fbk'))
+                    .map((card: any) => ({ owner, card, plus: Number(card.plusTokens ?? Math.max(0, Number(card.vpDelta || 0))) })));
+                const leader = [...(G.players || [])]
+                  .filter((owner: any) => String(owner.id) !== String(p.id) && owner.active)
+                  .sort((a: any, b: any) => scorePlayer(b) - scorePlayer(a))[0];
+                // Prefer the largest stealable stack. The leader is only a
+                // tie-breaker, so a rich non-leader beats a leader with 0.
+                candidates.sort((a: any, b: any) => (b.plus - a.plus)
+                  || (String(a.owner.id) === String(leader?.id) ? -1 : 0)
+                  || (String(b.owner.id) === String(leader?.id) ? 1 : 0));
+                const target = candidates[0]?.card || null;
+                const targetOwner = candidates[0]?.owner || null;
+                if (target && targetOwner) {
                   const want = 3;
                   const avail = Number((target as any).plusTokens ?? Math.max(0, Number(target.vpDelta || 0)));
                   const take = Math.min(want, avail);
