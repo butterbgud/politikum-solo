@@ -602,6 +602,7 @@ function maybeEndAfterRound(G: PolitikumState, ctx: any, events: any) {
 
 const nowMs = () => Date.now();
 const RESPONSE_BOT_MS = 1000;
+const LEFT_BONUS_PERSONAS = new Set(['persona_1', 'persona_19', 'persona_42']);
 
 // A human deserves time to read and react; bot-only windows are merely a
 // pacing beat, so they should never make solo play feel like network latency.
@@ -3169,6 +3170,7 @@ export const PolitikumGame = {
                 target.passiveVpDelta = 0;
                 target.vp = Number(target.baseVp ?? 0);
                 target.blockedAbilities = true;
+                target.blockedBy = 'action_7';
                 recalcPassives(G);
                 G.log.push(`${ruYou(p.name)} (ACTION 7): заблокировал ${target.name || target.id}.`);
               }
@@ -3179,12 +3181,15 @@ export const PolitikumGame = {
             return;
           }
 
-          // action_13 shield: bots shield first persona in own coalition
+          // action_13 shield: bots protect their strongest unshielded persona.
           if (pend.kind === 'action_13_shield_persona' && String(pend.attackerId) === String(p.id)) {
             try {
-              const target: any = (p.coalition || []).find((c: any) => c && c.type === 'persona');
+              const target: any = (p.coalition || [])
+                .filter((c: any) => c && c.type === 'persona' && !c.shielded)
+                .sort((a: any, b: any) => Number(b.vp ?? b.baseVp ?? 0) - Number(a.vp ?? a.baseVp ?? 0))[0];
               if (target) {
                 target.shielded = true;
+                target.shieldedBy = 'action_13';
                 G.log.push(`${ruYou(p.name)} защитил ${target.name || target.id} (ACTION 13).`);
               }
             } catch {}
@@ -3445,7 +3450,7 @@ export const PolitikumGame = {
         if (!G.hasPlayed) {
           // Prefer persona, else action.
           // Bot heuristic: prioritize adjacency trio p1/p19/p42.
-          const TRIO = new Set(['persona_1','persona_19','persona_42']);
+          const TRIO = LEFT_BONUS_PERSONAS;
           const haveOnBoard = new Set((p.coalition || []).filter((x: any) => x?.type === 'persona').map((x: any) => baseId(String(x.id))));
           const idxP0 = (p.hand || []).findIndex((cc: any) => cc.type === 'persona' && TRIO.has(baseId(String(cc.id))) && (haveOnBoard.has('persona_1') || haveOnBoard.has('persona_19') || haveOnBoard.has('persona_42')));
           const idxP = (idxP0 >= 0) ? idxP0 : (p.hand || []).findIndex((cc: any) => cc.type === 'persona');
@@ -3467,7 +3472,8 @@ export const PolitikumGame = {
 
             const c = p.hand[idxP];
             p.hand.splice(idxP, 1);
-            p.coalition.push(c);
+            if (LEFT_BONUS_PERSONAS.has(baseId(String(c.id)))) p.coalition.unshift(c);
+            else p.coalition.push(c);
             debugTrace(G, 'bot_play_persona', { player: String(p.id), card: String(c.id), ability: String(c.abilityKey || ''), coalitionSize: Number(p.coalition.length) });
 
             // action_5 modifier: -1 token/VP to each played persona this turn
@@ -3828,6 +3834,8 @@ export const PolitikumGame = {
         } else {
           owner.coalition.push(c);
         }
+      } else if (LEFT_BONUS_PERSONAS.has(base)) {
+        owner.coalition.unshift(c);
       } else {
         owner.coalition.push(c);
       }

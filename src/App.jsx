@@ -107,7 +107,8 @@ function Card({ card, language, onClick, onPreview, dim = false, selected = fals
     else onClick?.();
   };
   return <button className={`card ${dim ? 'dim' : ''} ${selected ? 'selected' : ''}`} onClick={inspectOrPlay} title={`${card.name || baseId(card.id)} · ${card.vp ?? 0} VP`}>
-    {card.shieldedBy === 'action_13' && <img className="white-coat" src={cardImage({ img: '/cards/action_13.webp' }, language)} alt="White Coat" />}
+    {card.shieldedBy === 'action_13' && <img className="attached-action white-coat" src={cardImage({ img: '/cards/action_13.webp' }, language)} alt="White Coat" />}
+    {card.blockedBy === 'action_7' && <img className="attached-action foreign-agent-card" src={cardImage({ img: '/cards/action_7.webp' }, language)} alt="Foreign Agent" />}
     <img src={cardImage(card, language)} alt={card.name || card.id} />
     {card.type === 'persona' && <span className="card-stats">{showVictory && <b className="vp">{card.vp ?? 0}</b>}{plusTokens > 0 && <i className="token-plus">+{plusTokens}</i>}{minusTokens > 0 && <i className="token-minus">−{minusTokens}</i>}</span>}
     {card.blockedAbilities && <i className="marker">×</i>}
