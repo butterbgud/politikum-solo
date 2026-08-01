@@ -116,11 +116,11 @@ function Card({ card, language, onClick, onPreview, dim = false, selected = fals
 
 function pendingText(pending, language) {
   const copy = language === 'en' ? {
-    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in an opponent coalition.', action_17_choose_opponent_persona: 'Choose an opponent resident.', action_18_pick_persona_from_discard: 'Choose a discarded resident to return to your hand.', persona_3_choice: 'SVTV: discard a displayed left-wing resident, or use the SVTV panel to remove all their +1 tokens.', persona_32_pick_bounce_target: 'Plyushchev: choose a resident in your coalition to return to your hand.', persona_23_choose_self_inflict_draw: 'Persona 23: choose −1, −2, or −3 VP tokens, then draw that many cards.', persona_33_choose_faction: 'Sobchak: choose a faction. She gains +1 for each resident of that faction in your coalition, including herself.', persona_34_guess_topdeck: 'Milov: name the next persona in the deck for an immediate win.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
+    place_tokens_plus_vp: 'Choose a resident in your coalition for tokens.', action_4_discard: 'Choose a card in your coalition to discard.', action_9_discard_persona: 'Choose an unprotected resident in any coalition.', action_17_choose_opponent_persona: 'Choose an opponent resident.', action_18_pick_persona_from_discard: 'Choose a discarded resident to return to your hand.', persona_3_choice: 'SVTV: discard a displayed left-wing resident, or use the SVTV panel to remove all their +1 tokens.', persona_32_pick_bounce_target: 'Plyushchev: choose a resident in your coalition to return to your hand.', persona_23_choose_self_inflict_draw: 'Persona 23: choose −1, −2, or −3 VP tokens, then draw that many cards.', persona_33_choose_faction: 'Sobchak: choose a faction. She gains +1 for each resident of that faction in your coalition, including herself.', persona_34_guess_topdeck: 'Milov: name the next persona in the deck for an immediate win.', persona_5_pick_liberal: 'Pevchikh: choose an unprotected Liberal in an opponent coalition.', persona_21_pick_target_invert: 'Choose a resident to invert their tokens.', persona_26_pick_red_nationalist: 'Choose a Red Nationalist.', persona_28_pick_non_fbk: 'Choose a non-FBK resident.', persona_37_pick_opponent_persona: 'Choose an opponent resident.', discard_down_to_7: 'Discard from your hand down to 7 cards.',
   } : {
     place_tokens_plus_vp: 'Выберите персонажа в своей коалиции для жетонов.',
     action_4_discard: 'Выберите карту из своей коалиции для сброса.',
-    action_9_discard_persona: 'Выберите конкретного незащищённого персонажа в коалиции соперника.',
+    action_9_discard_persona: 'Выберите конкретного незащищённого персонажа в любой коалиции.',
     action_7_block_persona: 'Выберите персонажа для блокировки.',
     action_13_shield_persona: 'Выберите персонажа для защиты.',
     action_17_choose_opponent_persona: 'Выберите персонажа соперника.',
@@ -149,8 +149,7 @@ function isPevchihTarget(owner, card) {
 }
 
 function isAction9Target(pending, owner, card) {
-  return owner.id !== '0'
-    && (!pending.targetId || String(owner.id) === String(pending.targetId))
+  return (!pending.targetId || String(owner.id) === String(pending.targetId))
     && card.type === 'persona'
     && !card.shielded
     && baseId(card.id) !== 'persona_31';

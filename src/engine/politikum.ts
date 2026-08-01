@@ -3846,11 +3846,11 @@ export const PolitikumGame = {
         return;
       }
 
-      // Action 9: in solo, the human chooses the exact opposing persona.
+      // Action 9: in solo, the human chooses any exact persona, including their own.
       if (base === 'action_9') {
         const tid = String(targetId ?? '');
         const target = tid ? (G.players || []).find((pp: any) => String(pp.id) === tid) : null;
-        if ((tid && !target) || tid === String(playerID)) return INVALID_MOVE;
+        if (tid && !target) return INVALID_MOVE;
 
         me.hand.splice(idx, 1);
         const allowPersona10By = target && (target.coalition || []).some((x: any) => baseId(String(x.id)) === 'persona_10') ? tid : null;
@@ -3864,7 +3864,7 @@ export const PolitikumGame = {
         G.lastAction = c;
         G.hasPlayed = true;
         G.pending = { kind: 'action_9_discard_persona', attackerId: String(playerID), playerId: String(playerID), targetId: tid, sourceCardId: String(c.id) };
-        G.log.push(target ? `${ruYou(me.name)} разыграл Вывод во внешний контур на ${target.name}.` : `${ruYou(me.name)} разыграл Вывод во внешний контур: выберите персонажа соперника.`);
+        G.log.push(target ? `${ruYou(me.name)} разыграл Вывод во внешний контур на ${target.name}.` : `${ruYou(me.name)} разыграл Вывод во внешний контур: выберите персонажа в любой коалиции.`);
 
         // If target is a bot, auto-discard immediately (first persona)
         if (target && String(playerID) !== '0' && String(target.name || '').startsWith('[B]')) {
@@ -3992,7 +3992,7 @@ export const PolitikumGame = {
       if (pending.kind === 'action_9_discard_persona' && String(playerID) !== String(pending.attackerId)) return INVALID_MOVE;
 
       const target = pending.kind === 'action_9_discard_persona' && !pending.targetId
-        ? (G.players || []).find((pp: any) => String(pp.id) !== String(playerID) && (pp.coalition || []).some((c: any) => c.id === cardId))
+        ? (G.players || []).find((pp: any) => (pp.coalition || []).some((c: any) => c.id === cardId))
         : (G.players || []).find((pp: any) => String(pp.id) === String(pending.targetId));
       if (!target) return INVALID_MOVE;
 
@@ -4017,7 +4017,7 @@ export const PolitikumGame = {
         const haveP13 = (target.coalition || []).some((c: any) => baseId(String(c.id)) === 'persona_13');
         const attacker = (G.players || []).find((pp: any) => String(pp.id) === String(pending.attackerId));
         const attackerHasPersona = !!(attacker?.coalition || []).some((c: any) => c.type === 'persona');
-        if (haveP13 && attacker && attackerHasPersona) {
+        if (haveP13 && attacker && String(target.id) !== String(attacker.id) && attackerHasPersona) {
           (G as any).pending = { kind: 'persona_13_pick_target', playerId: String(target.id), attackerId: String(attacker.id), sourceCardId: String((pending as any).sourceCardId || '') } as any;
           return;
         }
