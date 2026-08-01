@@ -464,6 +464,8 @@ function cardTitle(x: any) {
   return bid || id || '';
 }
 
+const BOT_ACTIONS_WITH_EFFECT = new Set(['action_5', 'action_13']);
+
 function persona38OnEventPlayed(G: PolitikumState, eventCard: any) {
   try {
     const bid = baseId(String(eventCard?.id || ''));
@@ -2675,6 +2677,7 @@ export const PolitikumGame = {
             }
           }
           G.hasDrawn = true;
+          G.drawsThisTurn = 1;
         }
 
         // Resolve pending interactions for bots.
@@ -3303,6 +3306,37 @@ export const PolitikumGame = {
               events.endTurn?.();
               return;
             }
+          }
+        }
+
+        // If the bot has no persona or meaningful action, prefer the second
+        // draw while there is hand capacity instead of burning a no-op action.
+        if (G.hasDrawn && !G.hasPlayed && Number(G.drawsThisTurn || 0) < 2 && (p.hand || []).length < 7) {
+          const hasPersona = (p.hand || []).some((cc: any) => cc.type === 'persona');
+          const hasUsefulAction = (p.hand || []).some((cc: any) => cc.type === 'action' && BOT_ACTIONS_WITH_EFFECT.has(baseId(String(cc.id))));
+          if (!hasPersona && !hasUsefulAction) {
+            const second = G.deck.shift();
+            if (second) {
+              G.drawsThisTurn = 2;
+              if (second.type === 'event') {
+                G.lastEvent = second;
+                pauseBotsForEventReveal(G);
+                G.log.push(`${ruYou(p.name)} ${ruDrewVerb(p.name)} ${eventTitle(second)}`);
+                runAbility(second.abilityKey, { G, me: p, card: second });
+                persona38OnEventPlayed(G, second);
+                recalcPassives(G);
+                G.discard.push(second);
+              } else {
+                p.hand.push(second);
+                G.log.push(`${p.name} берет вторую карту`);
+              }
+            }
+            G.hasPlayed = true;
+            if (!(G as any).pending && !(G as any).response) {
+              if (maybeEndAfterRound(G, ctx, events)) return;
+              events.endTurn?.();
+            } else G.botNextActAtMs = nowMs() + 400;
+            return;
           }
         }
 
