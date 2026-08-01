@@ -661,7 +661,10 @@ function expireResponseAndResolveDeferred(G: PolitikumState) {
   } catch {}
   try { maybeResolveDeferredPersona(G); } catch {}
   try {
-    if (!(G as any).pending && !(G as any).response && (G as any).persona16AfterEvents) {
+    // Resume all queued Kaz events until one creates its own pending choice;
+    // then continue with the remaining queue on the next resolver tick.
+    for (let guard = 0; guard < 4; guard++) {
+      if ((G as any).pending || (G as any).response || !(G as any).persona16AfterEvents) break;
       const q: any = (G as any).persona16AfterEvents;
       const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(q.playerId));
       const events: any[] = Array.isArray(q.events) ? q.events : [];
@@ -2547,7 +2550,8 @@ export const PolitikumGame = {
           pend0.remaining = 0;
           (G as any).pending = null;
           recalcPassives(G);
-          if (G.hasDrawn && G.hasPlayed && !(G as any).response) {
+          try { expireResponseAndResolveDeferred(G); } catch {}
+          if (!(G as any).pending && !(G as any).persona16AfterEvents && G.hasDrawn && G.hasPlayed && !(G as any).response) {
             if (maybeEndAfterRound(G, ctx, events)) return;
             events.endTurn?.();
           } else G.botNextActAtMs = nowMs() + 900;
@@ -2678,7 +2682,8 @@ export const PolitikumGame = {
               (G as any).pending = null;
             }
             recalcPassives(G);
-            if (!(G as any).pending && G.hasDrawn && G.hasPlayed && !(G as any).response) {
+            try { expireResponseAndResolveDeferred(G); } catch {}
+            if (!(G as any).pending && !(G as any).persona16AfterEvents && G.hasDrawn && G.hasPlayed && !(G as any).response) {
               if (maybeEndAfterRound(G, ctx, events)) return;
               events.endTurn?.();
             } else G.botNextActAtMs = nowMs() + 600;
