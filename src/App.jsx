@@ -240,7 +240,9 @@ export default function App() {
   const active = String(ctx?.currentPlayer) === '0';
 
   useEffect(() => {
-    if (!client || !G || eventReveal || G.gameOver || (active && !G.response)) return undefined;
+    // Keep the watchdog alive during event flybys. The engine pauses bot
+    // actions itself, so hard-cap recovery still works while the card is shown.
+    if (!client || !G || G.gameOver || (active && !G.response)) return undefined;
     const timer = setInterval(() => client.moves.tickBot(), 700);
     return () => clearInterval(timer);
   }, [client, G, active]);

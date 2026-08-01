@@ -430,6 +430,11 @@ function eventTitle(card: any) {
   return raw || String(eventTitleByBaseId(bid) || card?.id || '');
 }
 
+function pauseBotsForEventReveal(G: any) {
+  const until = nowMs() + 2200;
+  G.eventRevealPauseUntilMs = Math.max(Number(G.eventRevealPauseUntilMs || 0), until);
+}
+
 function actionTitle(card: any) {
   const bid = baseId(String(card?.id || ''));
   const mapped = actionTitleByBaseId(bid);
@@ -674,6 +679,7 @@ function expireResponseAndResolveDeferred(G: PolitikumState) {
         const next: any = events.shift();
         q.events = events;
         (G as any).lastEvent = next;
+        pauseBotsForEventReveal(G);
         const title = eventTitle(next);
         G.log.push(`${ruYou(me?.name)} вытянул Событие "${title}" из способности ${q.sourceCardId}.`);
         runAbility(String(next.abilityKey || ''), { G, me, card: next } as any);
@@ -1477,6 +1483,7 @@ export const PolitikumGame = {
         if (!next) return;
         if (next.type === 'event') {
           G.lastEvent = next;
+          pauseBotsForEventReveal(G);
           const evName = eventTitle(next);
           const srcBid2 = baseId(String(pend.sourceCardId || ''));
           const nextBid = baseId(String(next.id || ''));
@@ -1705,6 +1712,7 @@ export const PolitikumGame = {
         if (!next) break;
         if (next.type === 'event') {
           G.lastEvent = next;
+          pauseBotsForEventReveal(G);
           const evName = eventTitle(next);
           G.log.push(`${ruYou(me.name)} ${ruDrewVerb(me.name)} ${evName} из-за способности Волкова.`);
           runAbility(next.abilityKey, { G, me, card: next });
@@ -2457,6 +2465,10 @@ export const PolitikumGame = {
         const isBot = !!(p as any)?.isBot || String(p?.name || '').startsWith('[B]');
         if (!p || !isBot) return INVALID_MOVE;
 
+        // Keep bot turns visibly paused during the event flyby, but continue
+        // ticking so the hard-cap watchdog can recover genuinely stuck turns.
+        if (Number((G as any).eventRevealPauseUntilMs || 0) > nowMs()) return;
+
         // Hard cap: if a bot turn takes too long, force-skip it.
         try {
           const started = Number((G as any).turnStartedAtMs || 0);
@@ -2577,6 +2589,7 @@ export const PolitikumGame = {
           if (c) {
             if (c.type === 'event') {
               G.lastEvent = c;
+              pauseBotsForEventReveal(G);
               const bid = baseId(String(c.id));
               if (bid === 'event_10') {
                 G.log.push(`${p.name} попался "Перевод в криптоколонию"`);
@@ -3511,6 +3524,7 @@ export const PolitikumGame = {
       if (c.type === 'event') {
         // Events auto-resolve on draw
         G.lastEvent = c;
+        pauseBotsForEventReveal(G);
         const evName = eventTitle(c);
         const bid = baseId(String(c.id));
         const isBot = !!(p as any)?.isBot || String(p?.name || '').startsWith('[B]');

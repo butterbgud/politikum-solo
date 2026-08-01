@@ -51,6 +51,7 @@ function drawOneFromDeck({ G, me, source }: { G: PolitikumState; me: PolitikumPl
   if (!c) return;
   if (c.type === 'event') {
     G.lastEvent = c;
+    (G as any).eventRevealPauseUntilMs = Math.max(Number((G as any).eventRevealPauseUntilMs || 0), Date.now() + 2200);
     const src = String(source || '');
     const srcBid = src.split('#')[0];
     if (srcBid === 'event_15') {
