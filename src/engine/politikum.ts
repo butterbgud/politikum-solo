@@ -2716,21 +2716,22 @@ export const PolitikumGame = {
             return;
           }
 
-          // persona_21 invert tokens: pick first valid persona in play
+          // persona_21 invert tokens: punish the current opponent leader's strongest +token stack.
           if (pend.kind === 'persona_21_pick_target_invert' && String(pend.playerId) === String(p.id)) {
             try {
-              let owner: any = null;
-              let card: any = null;
-              for (const pp of (G.players || [])) {
-                for (const cc of (pp.coalition || [])) {
-                  if (!cc || cc.type !== 'persona') continue;
-                  if (baseId(String(cc.id)) === 'persona_31') continue;
-                  if (cc.shielded) continue;
-                  owner = pp;
-                  card = cc;
-                  break;
-                }
-                if (card) break;
+              const eligible = (owner: any) => (owner.coalition || []).filter((cc: any) => cc?.type === 'persona' && baseId(String(cc.id)) !== 'persona_31' && !cc.shielded);
+              const plus = (cc: any) => Number((cc as any).plusTokens ?? Math.max(0, Number(cc.vpDelta || 0)));
+              const opponents = (G.players || []).filter((pp: any) => String(pp.id) !== String(p.id) && pp.active);
+              const ranked = [...opponents].sort((a: any, b: any) => scorePlayer(b) - scorePlayer(a));
+              let owner: any = ranked.find((pp: any) => eligible(pp).length) || null;
+              let card: any = owner ? [...eligible(owner)].sort((a: any, b: any) => plus(b) - plus(a))[0] : null;
+
+              // If the leader has no eligible persona, use the biggest positive stack anywhere else.
+              if (!card || plus(card) <= 0) {
+                const choices = opponents.flatMap((pp: any) => eligible(pp).map((cc: any) => ({ owner: pp, card: cc })));
+                choices.sort((a: any, b: any) => plus(b.card) - plus(a.card));
+                owner = choices[0]?.owner || null;
+                card = choices[0]?.card || null;
               }
               if (owner && card) {
                 const before = Number(card.vpDelta || 0);
