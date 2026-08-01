@@ -3235,7 +3235,19 @@ export const PolitikumGame = {
             } catch {
               G.log.push(`${p.name} played ${c.name || c.id} to Coalition.`);
             }
-            runAbility(c.abilityKey, { G, me: p, card: c });
+            // Do not execute on-enter abilities before the action_8 response
+            // window.  In particular, Arno creates a follow-up picker; if
+            // another bot cancels Arno, that picker must never be created.
+            // Human plays already use this deferred path below.
+            if (c.abilityKey) {
+              (G as any).pending = {
+                kind: 'resolve_persona_after_response',
+                playerId: String(p.id),
+                sourceCardId: String(c.id),
+                personaId: String(c.id),
+                abilityKey: String(c.abilityKey),
+              } as any;
+            }
             recalcPassives(G);
 
             // Response window: allow others to cancel this persona with action_8
@@ -3737,6 +3749,11 @@ export const PolitikumGame = {
           const targetName = String((G.response.personaCard as any)?.name || (G.response.personaCard as any)?.text || (G.response.personaCard as any)?.id || 'персонажа');
           G.log.push(`${me.name} обвинил ${targetName} в работе на кремль!`);
           G.response = null;
+          // The cancelled bot must be allowed to finish its already-played
+          // turn on the next bot tick; otherwise botPauseUntilMs can leave it
+          // waiting until the stale response deadline.
+          (G as any).botPauseUntilMs = 0;
+          (G as any).botNextActAtMs = nowMs() + 250;
           return;
         }
 
