@@ -59,6 +59,7 @@ export type PolitikumState = {
   responseTimeSeconds?: 5 | 10;
   handRevealPlayerId?: string | null;
   handRevealUntilMs?: number | null;
+  debugTrace?: Array<{ at: number; event: string; details?: Record<string, any> }>;
 
   // round-end handling: once someone reaches 7 coalition, finish the round
   roundEnding?: boolean;
@@ -428,6 +429,12 @@ function eventTitle(card: any) {
   const raw = String((card as any)?.text || (card as any)?.name || '').trim();
   if (!raw || /^event_\d+/u.test(raw) || raw === bid) return String(eventTitleByBaseId(bid) || raw || card?.id || '');
   return raw || String(eventTitleByBaseId(bid) || card?.id || '');
+}
+
+function debugTrace(G: any, event: string, details: Record<string, any> = {}) {
+  const trace = Array.isArray(G.debugTrace) ? G.debugTrace : (G.debugTrace = []);
+  trace.push({ at: Date.now(), event, details });
+  if (trace.length > 120) trace.splice(0, trace.length - 120);
 }
 
 function pauseBotsForEventReveal(G: any) {
@@ -2464,6 +2471,14 @@ export const PolitikumGame = {
         const p = (G.players || []).find((pp: any) => String(pp.id) === String(ctx.currentPlayer));
         const isBot = !!(p as any)?.isBot || String(p?.name || '').startsWith('[B]');
         if (!p || !isBot) return INVALID_MOVE;
+        debugTrace(G, 'bot_tick', {
+          player: String(p.id), turn: Number(ctx.turn || 0),
+          hasDrawn: !!G.hasDrawn, hasPlayed: !!G.hasPlayed,
+          draws: Number(G.drawsThisTurn || 0), plays: Number(G.playsThisTurn || 0),
+          pending: G.pending?.kind || null, response: G.response?.kind || null,
+          turnStartedAtMs: Number(G.turnStartedAtMs || 0),
+          botNextActAtMs: Number(G.botNextActAtMs || 0), botPauseUntilMs: Number(G.botPauseUntilMs || 0),
+        });
 
         // Keep bot turns visibly paused during the event flyby, but continue
         // ticking so the hard-cap watchdog can recover genuinely stuck turns.
@@ -2473,6 +2488,7 @@ export const PolitikumGame = {
         try {
           const started = Number((G as any).turnStartedAtMs || 0);
           if (started && (nowMs() - started) > 20_000) {
+            debugTrace(G, 'bot_hard_cap', { player: String(p.id), elapsedMs: nowMs() - started });
             try { (G as any).pending = null; } catch {}
             try { (G as any).response = null; } catch {}
             try { (G as any).botPauseUntilMs = 0; } catch {}
@@ -3283,6 +3299,7 @@ export const PolitikumGame = {
             const c = p.hand[idxP];
             p.hand.splice(idxP, 1);
             p.coalition.push(c);
+            debugTrace(G, 'bot_play_persona', { player: String(p.id), card: String(c.id), ability: String(c.abilityKey || ''), coalitionSize: Number(p.coalition.length) });
 
             // action_5 modifier: -1 token/VP to each played persona this turn
             const dv = Number(G.playVpDelta || 0);

@@ -373,7 +373,19 @@ export default function App() {
   const submitBug = async () => {
     setBugStatus('sending');
     try {
-      const response = await fetch('/api/bugreport', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: bugText, version: BUILD_VERSION, language, url: window.location.href, userAgent: navigator.userAgent, history: (G?.log || []).slice(-30), game: G ? { turn: ctx?.turn, pending: G.pending?.kind || null, response: G.response?.kind || null, deck: G.deck?.length || 0 } : null }) });
+      const cardInfo = (card) => card ? { id: card.id, type: card.type, vp: card.vp, vpDelta: card.vpDelta, blocked: !!card.blockedAbilities, shielded: !!card.shielded } : null;
+      const debug = G ? {
+        phase: ctx?.phase, turn: ctx?.turn, currentPlayer: ctx?.currentPlayer,
+        currentPlayerName: G.players?.find((p) => String(p.id) === String(ctx?.currentPlayer))?.name || null,
+        flags: { hasDrawn: !!G.hasDrawn, hasPlayed: !!G.hasPlayed, drawsThisTurn: G.drawsThisTurn || 0, playsThisTurn: G.playsThisTurn || 0 },
+        timers: { turnStartedAtMs: G.turnStartedAtMs || 0, botNextActAtMs: G.botNextActAtMs || 0, botPauseUntilMs: G.botPauseUntilMs || 0, eventRevealPauseUntilMs: G.eventRevealPauseUntilMs || 0 },
+        pending: G.pending || null,
+        response: G.response ? { kind: G.response.kind, playedBy: G.response.playedBy, expiresAtMs: G.response.expiresAtMs, personaCard: cardInfo(G.response.personaCard), actionCard: cardInfo(G.response.actionCard) } : null,
+        deck: G.deck?.length || 0, lastEvent: cardInfo(G.lastEvent), lastAction: cardInfo(G.lastAction),
+        trace: (G.debugTrace || []).slice(-60),
+        players: (G.players || []).map((p) => ({ id: p.id, name: p.name, isBot: !!p.isBot, handSize: p.hand?.length || 0, hand: (p.hand || []).map(cardInfo), coalition: (p.coalition || []).map(cardInfo) })),
+      } : null;
+      const response = await fetch('/api/bugreport', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: bugText, version: BUILD_VERSION, language, url: window.location.href, userAgent: navigator.userAgent, history: (G?.log || []).slice(-30), debug, game: G ? { turn: ctx?.turn, pending: G.pending?.kind || null, response: G.response?.kind || null, deck: G.deck?.length || 0 } : null }) });
       if (!response.ok) throw new Error('Bug report request failed');
       setBugStatus('sent');
       setBugText('');
