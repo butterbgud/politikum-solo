@@ -598,7 +598,26 @@ function responseExpired(G: PolitikumState) {
 
 function expireResponseAndResolveDeferred(G: PolitikumState) {
   try {
-    if (G.response && responseExpired(G)) (G as any).response = null;
+    const response: any = (G as any).response;
+    const pending: any = (G as any).pending;
+    if (response && responseExpired(G) && response.kind === 'cancel_persona_ability' && pending?.kind === 'discard_one_persona_from_any_coalition' && pending?.nakiTargetId) {
+      const owner: any = (G.players || []).find((p: any) => String(p.id) === String(pending.nakiTargetOwnerId));
+      const idx = (owner?.coalition || []).findIndex((c: any) => String(c.id) === String(pending.nakiTargetId));
+      if (owner && idx >= 0) {
+        const [drop] = owner.coalition.splice(idx, 1);
+        if (drop) {
+          G.discard.push(drop);
+          if ((drop as any).type === 'persona') persona44OnPersonaDiscarded(G);
+          const actor: any = (G.players || []).find((p: any) => String(p.id) === String(pending.playerId));
+          G.log.push(`${ruYou(actor?.name || pending.playerId)} использовал способность ${cardTitle({ id: String(pending.sourceCardId || '') })}: сбросил ${drop.name || drop.id} из коалиции ${owner.name}.`);
+        }
+      }
+      (G as any).pending = null;
+      (G as any).response = null;
+      recalcPassives(G);
+    } else if (response && responseExpired(G)) {
+      (G as any).response = null;
+    }
   } catch {}
   try { maybeResolveDeferredPersona(G); } catch {}
   try {
@@ -1130,7 +1149,7 @@ export const PolitikumGame = {
     },
 
     discardPersonaFromCoalition: ({ G, ctx, playerID }: any, ownerId: string, coalitionCardId: string) => {
-      if (G.response && responseExpired(G)) G.response = null;
+      expireResponseAndResolveDeferred(G);
       const pend: any = (G as any).pending;
       if (!pend || pend.kind !== 'discard_one_persona_from_any_coalition') return INVALID_MOVE;
       if (String(playerID) !== String(ctx.currentPlayer)) return INVALID_MOVE;
@@ -1145,6 +1164,15 @@ export const PolitikumGame = {
       const target: any = owner.coalition[idx];
       if (!target || target.type !== 'persona') return INVALID_MOVE;
       if (target?.shielded) return INVALID_MOVE;
+
+      const hasNaki = String(owner.id) !== String(playerID) && (owner.coalition || []).some((c: any) => c?.type === 'persona' && baseId(String(c.id)) === 'persona_10');
+      if (hasNaki) {
+        if (G.response && !responseExpired(G)) return INVALID_MOVE;
+        pend.nakiTargetId = String(coalitionCardId);
+        pend.nakiTargetOwnerId = String(owner.id);
+        G.response = { kind: 'cancel_persona_ability', playedBy: String(playerID), expiresAtMs: nowMs() + RESPONSE_ACTION_MS, allowPersona10By: String(owner.id) } as any;
+        return;
+      }
 
       const [c] = owner.coalition.splice(idx, 1);
       if (c) { G.discard.push(c); if ((c as any).type === 'persona') persona44OnPersonaDiscarded(G); }
@@ -1516,10 +1544,10 @@ export const PolitikumGame = {
     persona10CancelFromHand: ({ G, playerID }: any, _cardId: string) => {
       // Back-compat wrapper: older UI used hand click. Keep move name but discard from coalition.
       const r: any = (G as any).response;
-      if (!r || r.kind !== 'cancel_action') return INVALID_MOVE;
+      if (!r || (r.kind !== 'cancel_action' && r.kind !== 'cancel_persona_ability')) return INVALID_MOVE;
       if (responseExpired(G)) return INVALID_MOVE;
       if (String(r.allowPersona10By || '') !== String(playerID)) return INVALID_MOVE;
-      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona')) return INVALID_MOVE;
+      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona' || G.pending?.kind === 'discard_one_persona_from_any_coalition')) return INVALID_MOVE;
 
       const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       if (!me) return INVALID_MOVE;
@@ -1540,10 +1568,10 @@ export const PolitikumGame = {
 
     persona10CancelFromCoalition: ({ G, playerID }: any) => {
       const r: any = (G as any).response;
-      if (!r || r.kind !== 'cancel_action') return INVALID_MOVE;
+      if (!r || (r.kind !== 'cancel_action' && r.kind !== 'cancel_persona_ability')) return INVALID_MOVE;
       if (responseExpired(G)) return INVALID_MOVE;
       if (String(r.allowPersona10By || '') !== String(playerID)) return INVALID_MOVE;
-      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona')) return INVALID_MOVE;
+      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona' || G.pending?.kind === 'discard_one_persona_from_any_coalition')) return INVALID_MOVE;
 
       const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       if (!me) return INVALID_MOVE;

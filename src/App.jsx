@@ -217,6 +217,7 @@ export default function App() {
   const [bugStatus, setBugStatus] = useState('');
   const [actionNotice, setActionNotice] = useState(null);
   const [katzSelected, setKatzSelected] = useState([]);
+  const [kasparovFirst, setKasparovFirst] = useState(null);
   const clientRef = useRef(null);
   const actionNoticeRef = useRef(null);
 
@@ -266,6 +267,10 @@ export default function App() {
 
   useEffect(() => {
     if (G?.pending?.kind !== 'persona_16_discard3_from_hand') setKatzSelected([]);
+  }, [G?.pending?.kind, G?.pending?.sourceCardId]);
+
+  useEffect(() => {
+    if (G?.pending?.kind !== 'persona_7_swap_two_in_coalition') setKasparovFirst(null);
   }, [G?.pending?.kind, G?.pending?.sourceCardId]);
 
   const play = (card) => {
@@ -364,6 +369,7 @@ export default function App() {
   const winner = G.gameOver ? (G.players.find((p) => p.id === String(G.winnerId)) || [...G.players].filter((p) => p.active).sort((a, b) => score(b) - score(a))[0]) : null;
   const responseSeconds = G.response ? Math.max(0, Math.ceil((Number(G.response.expiresAtMs || 0) - clock) / 1000)) : 0;
   const canAnswerResponse = G.response && String(G.response.playedBy) !== '0';
+  const canNakiCancel = canAnswerResponse && String(G.response?.allowPersona10By || '') === '0';
   const responseCards = new Set(canAnswerResponse ? (G.response.kind === 'cancel_action'
     ? ['action_6', ...(String(G.pending?.targetId) === '0' ? ['action_14'] : [])]
     : G.response.kind === 'cancel_persona' && baseId(G.response.personaCard?.id || '') !== 'persona_33' ? ['action_8'] : []) : []);
@@ -379,9 +385,11 @@ export default function App() {
   return <main className="app">
     <header><div><p>POLITIKUM · SOLO</p><h1>{ui.salon}</h1><small className="version">#{BUILD_VERSION}</small></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div><div className="header-actions"><button className="report-button" onClick={() => { setBugStatus(''); setBugOpen(true); }}>{ui.reportBug}</button><button onClick={start}>{ui.newGame}</button></div></header>
     {G.pending && <div className="prompt">{pendingText(G.pending, language)}</div>}
-    {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · play ${G.response.kind === 'cancel_action' ? 'Volunteering or another action-cancel card' : 'Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · сыграйте ${G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.`}</div>}
+    {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · play ${G.response.kind === 'cancel_action' ? 'Volunteering or another action-cancel card' : 'Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · сыграйте ${G.response.kind === 'cancel_action' ? '«Волонтёрство» или карту отмены действия' : '«Работа на Кремль»'}.`}{canNakiCancel && <button onClick={() => client.moves.persona10CancelFromCoalition()}>{language === 'en' ? 'Discard Naki: cancel effect' : 'Сбросить Наки: отменить эффект'}</button>}</div>}
     {actionNotice && <div className="action-notice">{language === 'en' ? `“${actionNotice}” was played against you` : `Против вас сыграли «${actionNotice}»`}</div>}
     {G.response?.persona8Swap?.playerId === '0' && <button className="persona8-response" onClick={() => client.moves.persona8SwapWithPlayedPersona()}>{language === 'en' ? `Swap Persona 8 for ${G.response.personaCard?.name || 'the played resident'}` : `Поменять Персону 8 на ${G.response.personaCard?.name || 'сыгранного персонажа'}`}</button>}
+    {G.pending?.kind === 'event_16_discard_self_persona_then_draw1' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? 'Political [REDACTED] — choose a resident to discard' : 'Политический [РОСКОМНАДЗОР] — выберите персону для сброса'}</b><div className="fan">{(me?.coalition || []).filter((card) => isRoizmanTarget(card) && baseId(card.id) !== 'persona_31').map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.discardPersonaFromOwnCoalitionForEvent16(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
+    {G.pending?.kind === 'persona_7_swap_two_in_coalition' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? `Kasparov — choose ${kasparovFirst ? 'the second resident in the same coalition' : 'the first resident'}` : `Каспаров — выберите ${kasparovFirst ? 'вторую персону в той же коалиции' : 'первую персону'}`}</b><div className="fan">{(kasparovFirst ? (G.players.find((p) => p.id === kasparovFirst.ownerId)?.coalition || []).filter((card) => card.type === 'persona' && card.id !== kasparovFirst.cardId) : G.players.flatMap((player) => (player.coalition || []).filter((card) => card.type === 'persona').map((card) => ({ ...card, ownerId: player.id })))).map((card) => <Card card={card} language={language} key={card.id} onClick={() => { if (!kasparovFirst) setKasparovFirst({ ownerId: card.ownerId, cardId: card.id }); else client.moves.persona7SwapTwoInCoalition(kasparovFirst.ownerId, kasparovFirst.cardId, card.id); }} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div>{kasparovFirst && <button onClick={() => setKasparovFirst(null)}>{language === 'en' ? 'Choose first again' : 'Выбрать первую заново'}</button>}</section></div>}
     <section className="table">
       <aside className="log"><b>{ui.log}</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{language === 'en' ? englishLog(line) : line}</small>)}</aside>
       <section className="coalitions">{G.players.filter((p) => p.active).map((player) => {
