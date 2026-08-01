@@ -247,6 +247,12 @@ export default function App() {
     return () => clearInterval(timer);
   }, [client, G, active]);
 
+  useEffect(() => {
+    if (!client || !G || !active || G.gameOver || G.response || G.pending || !G.hasDrawn || !G.hasPlayed) return undefined;
+    const timer = setTimeout(() => client.moves.endTurn(), 120);
+    return () => clearTimeout(timer);
+  }, [client, G, active]);
+
   // Human reaction windows are five seconds; bot-only windows are one second.
   useEffect(() => {
     if (!client || !G?.response || G.gameOver) return undefined;
