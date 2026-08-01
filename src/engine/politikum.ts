@@ -2343,6 +2343,42 @@ export const PolitikumGame = {
         if (rr && responseExpired(G)) {
           (G as any).response = null;
         }
+        // Bots must be able to answer a human's persona play out of turn.
+        // Previously tickBot only drove the current player, so Action 8 sat unused
+        // whenever the human was still the active player during the response window.
+        if (rr && rr.kind === 'cancel_persona' && !responseExpired(G) && baseId(String(rr.personaCard?.id || '')) !== 'persona_33') {
+          const responder: any = (G.players || []).find((pp: any) => {
+            const isBot = !!pp?.isBot || String(pp?.name || '').startsWith('[B]');
+            return isBot && String(pp.id) !== String(rr.playedBy) && (pp.hand || []).some((c: any) => c?.type === 'action' && baseId(String(c.id)) === 'action_8');
+          });
+          if (responder) {
+            const handIndex = responder.hand.findIndex((c: any) => c?.type === 'action' && baseId(String(c.id)) === 'action_8');
+            const [cancel] = responder.hand.splice(handIndex, 1);
+            if (cancel) G.discard.push(cancel);
+            const playedId = String(rr.personaCard?.id || '');
+            for (const owner of (G.players || [])) {
+              const coalitionIndex = (owner.coalition || []).findIndex((c: any) => String(c.id) === playedId);
+              if (coalitionIndex < 0) continue;
+              const [removed] = owner.coalition.splice(coalitionIndex, 1);
+              if (removed) {
+                G.discard.push(removed);
+                if ((removed as any).type === 'persona') persona44OnPersonaDiscarded(G);
+              }
+              break;
+            }
+            (G as any).pending = null;
+            (G as any).response = null;
+            for (const pp of (G.players || [])) for (const card of (pp.coalition || [])) {
+              const bid = baseId(String(card.id));
+              if (bid === 'persona_6') applyTokenDelta(G, card, 1);
+              if (bid === 'persona_29') applyTokenDelta(G, card, -1);
+            }
+            recalcPassives(G);
+            G.log.push(`${responder.name} сыграл «Работа на Кремль» и отменил ${rr.personaCard?.name || rr.personaCard?.id}.`);
+            G.botNextActAtMs = nowMs() + 400;
+            return;
+          }
+        }
         const p = (G.players || []).find((pp: any) => String(pp.id) === String(ctx.currentPlayer));
         const isBot = !!(p as any)?.isBot || String(p?.name || '').startsWith('[B]');
         if (!p || !isBot) return INVALID_MOVE;
