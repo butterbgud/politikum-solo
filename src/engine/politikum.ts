@@ -714,6 +714,35 @@ function actorWithPersona(me: any, personaBase: string) {
   return `${ruYou(me?.name)} ${pname}`;
 }
 
+const NAKI_CANCELLABLE_ABILITIES = new Set([
+  'persona_3_choice',
+  'persona_5_pick_liberal',
+  'persona_21_pick_target_invert',
+  'persona_26_pick_red_nationalist',
+  'persona_28_pick_non_fbk',
+  'persona_37_pick_opponent_persona',
+  'discard_one_persona_from_any_coalition',
+]);
+
+function openNakiResponseForPending(G: any) {
+  const pend: any = G.pending;
+  if (!pend || !NAKI_CANCELLABLE_ABILITIES.has(String(pend.kind)) || G.response) return;
+  const actorId = String(pend.playerId || '');
+  if (!actorId) return;
+  const sourceId = baseId(String(pend.sourceCardId || ''));
+  if (!sourceId.startsWith('persona_')) return;
+  const owner: any = (G.players || []).find((pp: any) => String(pp.id) !== actorId
+    && (pp.coalition || []).some((c: any) => c?.type === 'persona' && baseId(String(c.id)) === 'persona_10'));
+  if (!owner) return;
+  G.response = {
+    kind: 'cancel_persona_ability',
+    playedBy: actorId,
+    expiresAtMs: nowMs() + RESPONSE_ACTION_MS,
+    allowPersona10By: String(owner.id),
+  } as any;
+  (G as any).botPauseUntilMs = Number(G.response.expiresAtMs);
+}
+
 function applyAdjacencyBonusesAround(G: PolitikumState, owner: any, placedCard: any) {
   try {
     if (!owner || !placedCard) return;
@@ -749,6 +778,7 @@ function maybeResolveDeferredPersona(G: PolitikumState) {
       const key = String(pend.abilityKey || card.abilityKey || '');
       if (key) runAbility(key, { G, me: owner, card });
       applyAdjacencyBonusesAround(G, owner, card);
+      openNakiResponseForPending(G);
     }
   } catch {}
 
@@ -1621,7 +1651,7 @@ export const PolitikumGame = {
       if (!r || (r.kind !== 'cancel_action' && r.kind !== 'cancel_persona_ability')) return INVALID_MOVE;
       if (responseExpired(G)) return INVALID_MOVE;
       if (String(r.allowPersona10By || '') !== String(playerID)) return INVALID_MOVE;
-      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona' || G.pending?.kind === 'discard_one_persona_from_any_coalition')) return INVALID_MOVE;
+      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona' || NAKI_CANCELLABLE_ABILITIES.has(String(G.pending?.kind)))) return INVALID_MOVE;
 
       const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       if (!me) return INVALID_MOVE;
@@ -1645,7 +1675,7 @@ export const PolitikumGame = {
       if (!r || (r.kind !== 'cancel_action' && r.kind !== 'cancel_persona_ability')) return INVALID_MOVE;
       if (responseExpired(G)) return INVALID_MOVE;
       if (String(r.allowPersona10By || '') !== String(playerID)) return INVALID_MOVE;
-      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona' || G.pending?.kind === 'discard_one_persona_from_any_coalition')) return INVALID_MOVE;
+      if (!(G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona' || NAKI_CANCELLABLE_ABILITIES.has(String(G.pending?.kind)))) return INVALID_MOVE;
 
       const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       if (!me) return INVALID_MOVE;
@@ -3767,6 +3797,7 @@ export const PolitikumGame = {
         try {
           runAbility(String((c as any).abilityKey || ''), { G, me: owner, card: c });
           applyAdjacencyBonusesAround(G, owner, c);
+          openNakiResponseForPending(G);
         } catch {}
       }
 
