@@ -206,6 +206,37 @@ function scorePlayer(pp: any) {
   return (pp.coalition || []).reduce((s: number, c: any) => s + Number(c.vp ?? (c.baseVp || 0)), 0);
 }
 
+function action4BotDiscardIndex(player: any) {
+  const coalition: any[] = Array.isArray(player?.coalition) ? player.coalition : [];
+  const eligible = coalition
+    .map((card: any, index: number) => ({ card, index }))
+    .filter(({ card }) => card?.type === 'persona' && baseId(String(card.id)) !== 'persona_31' && !card.shielded);
+  if (!eligible.length) return -1;
+
+  const heldOrCoalition = new Set<string>([
+    ...coalition,
+    ...(Array.isArray(player?.hand) ? player.hand : []),
+  ].map((card: any) => baseId(String(card?.id || ''))));
+  const hasTrioCombo = (bid: string) => {
+    if (!LEFT_BONUS_PERSONAS.has(bid)) return false;
+    return [...LEFT_BONUS_PERSONAS].some((other) => other !== bid && heldOrCoalition.has(other));
+  };
+  const hasKagalitskyCombo = () => (player?.hand || []).some((card: any) => baseId(String(card?.id || '')) === 'action_7');
+  const comboProtection = (card: any) => {
+    const bid = baseId(String(card?.id || ''));
+    if (hasTrioCombo(bid)) return 1000;
+    if (bid === 'persona_36' && hasKagalitskyCombo()) return 1000;
+    return 0;
+  };
+
+  eligible.sort((a, b) => {
+    const protectedDelta = comboProtection(a.card) - comboProtection(b.card);
+    if (protectedDelta) return protectedDelta;
+    return Number(a.card.vp ?? a.card.baseVp ?? 0) - Number(b.card.vp ?? b.card.baseVp ?? 0);
+  });
+  return eligible[0].index;
+}
+
 function clearDetachedPersonaTokens(card: any) {
   if (!card || card.type !== 'persona') return;
   card.vpDelta = 0;
@@ -2657,7 +2688,8 @@ export const PolitikumGame = {
           G.pending = { kind: 'action_4_discard', attackerId: String(p.id), targetId: tid, sourceCardId: String(pend0.sourceCardId) } as any;
           G.log.push(`${ruYou(p.name)} выбрал целью действия ${target.name}.`);
           if (String(target.name || '').startsWith('[B]')) {
-            const drop = (target.coalition || []).shift();
+            const dropIndex = action4BotDiscardIndex(target);
+            const drop = dropIndex >= 0 ? (target.coalition || []).splice(dropIndex, 1)[0] : null;
             if (drop) { G.discard.push(drop); if (drop.type === 'persona') persona44OnPersonaDiscarded(G); G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`); }
             G.pending = null;
             G.response = null;
@@ -4001,9 +4033,10 @@ export const PolitikumGame = {
       G.log.push(`${ruYou(actor?.name || playerID)} выбрал целью действия ${target.name}.`);
 
       if (String(target.name || '').startsWith('[B]')) {
-        const drop = (target.coalition || [])[0];
+        const dropIndex = action4BotDiscardIndex(target);
+        const drop = dropIndex >= 0 ? (target.coalition || [])[dropIndex] : null;
         if (drop) {
-          target.coalition.splice(0, 1);
+          target.coalition.splice(dropIndex, 1);
           G.discard.push(drop);
           if (drop.type === 'persona') persona44OnPersonaDiscarded(G);
           G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`);
