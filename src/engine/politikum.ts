@@ -1861,7 +1861,7 @@ export const PolitikumGame = {
     },
 
     // Persona 45: on-enter, choose opponent then steal 1 facedown card from their hand.
-    persona21InvertTokens: ({ G, playerID }: any, ownerId: string, coalitionCardId: string) => {
+    persona21InvertTokens: ({ G, ctx, events, playerID }: any, ownerId: string, coalitionCardId: string) => {
       const pend: any = (G as any).pending;
       if (!pend || pend.kind !== 'persona_21_pick_target_invert') return INVALID_MOVE;
       if (String(pend.playerId) !== String(playerID)) return INVALID_MOVE;
@@ -1885,7 +1885,13 @@ export const PolitikumGame = {
       const me = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       G.log.push(`${ruYou(me?.name || playerID)} перевернул жетоны на ${target.name || target.id} (${before} → ${target.vpDelta}).`);
 
-      if (!openVenediktovChoice(G, owner, me, pend.sourceCardId)) (G as any).pending = null;
+      const triggeredVenediktov = openVenediktovChoice(G, owner, me, pend.sourceCardId);
+      if (!triggeredVenediktov) (G as any).pending = null;
+      if (triggeredVenediktov) return;
+      if (String(ctx.currentPlayer) === String(playerID) && G.hasDrawn && G.hasPlayed) {
+        if (maybeEndAfterRound(G, ctx, events)) return;
+        events.endTurn?.();
+      }
     },
 
     persona23ChooseSelfInflict: ({ G, playerID }: any, n: number) => {
