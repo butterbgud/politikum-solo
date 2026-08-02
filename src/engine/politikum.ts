@@ -1029,7 +1029,7 @@ export const PolitikumGame = {
           // persona_11 (Solovei): offer at start of turn (before draw)
           try {
             const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(ctx.currentPlayer));
-            if (me && (me.coalition || []).some((c: any) => baseId(String(c.id)) === 'persona_11')) {
+            if (me && (me.coalition || []).some((c: any) => baseId(String(c.id)) === 'persona_11' && !c.blockedAbilities)) {
               const haveTargets = (G.players || []).some((pp: any) => {
                 if (String(pp.id) === String(me.id)) return false;
                 return (pp.coalition || []).some((c: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded);
