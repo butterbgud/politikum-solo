@@ -3471,7 +3471,14 @@ export const PolitikumGame = {
 
           // event_16 self discard then draw
           if (pend.kind === 'event_16_discard_self_persona_then_draw1' && String(pend.playerId) === String(p.id)) {
-            const j = (p.coalition || []).findIndex((c: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded);
+            // Political [REDACTED] always removes the least valuable eligible
+            // resident first. This keeps negative-VP cards as the priority and
+            // never sacrifices the bot's highest-value resident by accident.
+            const eligible = (p.coalition || [])
+              .map((c: any, index: number) => ({ c, index }))
+              .filter(({ c }: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded)
+              .sort((a: any, b: any) => Number(a.c.vp || 0) - Number(b.c.vp || 0));
+            const j = eligible[0]?.index ?? -1;
             if (j >= 0) {
               const [drop] = p.coalition.splice(j, 1);
               if (drop) G.discard.push(drop);
