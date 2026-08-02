@@ -625,15 +625,25 @@ const MAX_COALITION = 7;
 function responseExpired(G: PolitikumState) {
   const r: any = (G as any).response;
   if (!r) return true;
-  
-  // If only bots can respond, expire immediately since bots do not use responses out of turn.
+
+  // If nobody can respond, expire immediately.  Bot-only persona cancel
+  // windows still need to stay open for tickBot: bots can use Action 8.
   const haveHumanResponders = (G.players || []).some((pp: any) => {
     if (!pp?.active) return false;
     if (String(pp.id) === String(r.playedBy)) return false;
     const isBot = !!pp?.isBot || String(pp?.name || '').startsWith('[B]');
     return !isBot;
   });
-  if (!haveHumanResponders) return true;
+  const haveBotPersonaResponder = r.kind === 'cancel_persona' && baseId(String(r.personaCard?.id || '')) !== 'persona_33'
+    && (G.players || []).some((pp: any) => {
+      if (!pp?.active) return false;
+      if (String(pp.id) === String(r.playedBy)) return false;
+      const responderIsBot = !!pp?.isBot || String(pp?.name || '').startsWith('[B]');
+      if (!responderIsBot) return false;
+      if (!botShouldCancelPersona(G, r)) return false;
+      return (pp.hand || []).some((c: any) => c?.type === 'action' && baseId(String(c.id)) === 'action_8');
+    });
+  if (!haveHumanResponders && !haveBotPersonaResponder) return true;
 
   // Small grace to avoid client/server clock skew and click-latency “did nothing”.
   return nowMs() >= (Number(r.expiresAtMs || 0) + 3500);
