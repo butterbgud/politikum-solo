@@ -14,7 +14,13 @@ function baseId(instId: string) {
 }
 
 function applyTokenDelta(card: any, delta: number) {
-  card.vpDelta = Number(card.vpDelta || 0) + delta;
+  const prevPlus = Number(card.plusTokens ?? Math.max(0, Number(card.vpDelta || 0)));
+  const prevMinus = Number(card.minusTokens ?? Math.max(0, -Number(card.vpDelta || 0)));
+  const plus = prevPlus + (delta > 0 ? delta : 0);
+  const minus = prevMinus + (delta < 0 ? Math.abs(delta) : 0);
+  card.plusTokens = plus;
+  card.minusTokens = minus;
+  card.vpDelta = plus - minus;
   const base = Number(card.baseVp ?? 0);
   const tok = Number(card.vpDelta ?? 0);
   const pas = Number(card.passiveVpDelta ?? 0);

@@ -14,6 +14,8 @@ export type PolitikumCard = {
   baseVp?: number; // printed VP
   vp?: number; // current VP (base + token deltas + passive deltas)
   vpDelta?: number; // token delta (e.g. +1/-1 tokens)
+  plusTokens?: number; // visible positive token count
+  minusTokens?: number; // visible negative token count
   passiveVpDelta?: number; // computed delta (e.g. per-male penalty)
 
   tags?: string[]; // faction/traits, copied from cards.yaml
