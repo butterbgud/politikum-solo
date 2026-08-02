@@ -3903,6 +3903,10 @@ export const PolitikumGame = {
         } else {
           owner.coalition.push(c);
         }
+      } else if (owner === p && (owner.coalition || []).some((cc: any) => baseId(String(cc.id)) === 'persona_25' && !cc.blockedAbilities)) {
+        // Nadezhdin scores by the number of personas to his left, so once he
+        // is active every later persona joins on the left to maximize that bonus.
+        owner.coalition.unshift(c);
       } else if (LEFT_BONUS_PERSONAS.has(base)) {
         owner.coalition.unshift(c);
       } else {
