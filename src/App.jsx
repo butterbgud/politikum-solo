@@ -219,14 +219,13 @@ export default function App() {
   const [bugOpen, setBugOpen] = useState(false);
   const [bugText, setBugText] = useState('');
   const [bugStatus, setBugStatus] = useState('');
-  const [actionNotice, setActionNotice] = useState(null);
+  const [logOpen, setLogOpen] = useState(false);
   const [katzSelected, setKatzSelected] = useState([]);
   const [svtvPicking, setSvtvPicking] = useState(false);
   const [handLimitSelected, setHandLimitSelected] = useState([]);
   const [kasparovFirst, setKasparovFirst] = useState(null);
   const [eventReveal, setEventReveal] = useState(null);
   const clientRef = useRef(null);
-  const actionNoticeRef = useRef(null);
 
   const start = () => {
     clientRef.current?.stop?.();
@@ -279,18 +278,6 @@ export default function App() {
     const tick = setInterval(() => setClock(Date.now()), 100);
     return () => clearInterval(tick);
   }, [G?.handRevealUntilMs]);
-
-  useEffect(() => {
-    const action = G?.lastAction;
-    if (!action || actionNoticeRef.current === action.id) return undefined;
-    actionNoticeRef.current = action.id;
-    const isBotAction = String(G.response?.playedBy || '') !== '0';
-    const targetsYou = String(G.pending?.targetId || '') === '0';
-    if (!isBotAction || !targetsYou) return undefined;
-    setActionNotice(action.name || action.text || baseId(action.id));
-    const timer = setTimeout(() => setActionNotice(null), 3000);
-    return () => clearTimeout(timer);
-  }, [G?.lastAction?.id, G?.response?.playedBy, G?.pending?.targetId]);
 
   useEffect(() => {
     if (G?.pending?.kind !== 'persona_16_discard3_from_hand') setKatzSelected([]);
@@ -444,16 +431,16 @@ export default function App() {
   const katzDiscardCount = Math.min(3, me?.hand?.length || 0);
   const handLimitDiscardCount = Math.max(0, (me?.hand?.length || 0) - 7);
   const handLimitPending = G.pending?.kind === 'discard_down_to_7' && String(G.pending.playerId) === '0';
+  const showPendingPrompt = G.pending && G.pending.kind !== 'resolve_persona_after_response';
   const visibleHand = katzDiscardPending ? [] : (fullHandVisible || handDecisionPending ? (me?.hand || []) : (me?.hand || []).filter((card) => responseCards.has(baseId(card.id))));
   const arnoOpponents = G.players.filter((player) => player.active && player.id !== '0');
   const arnoTarget = G.pending?.kind === 'persona_17_pick_persona_from_hand'
     ? G.players.find((player) => String(player.id) === String(G.pending.targetId))
     : null;
   return <main className="app">
-    <header><div className="brand"><p>POLITIKUM · SOLO</p><small className="version">#{BUILD_VERSION}</small><div className="header-actions"><button className="report-button" onClick={() => { setBugStatus(''); setBugOpen(true); }}>{ui.reportBug}</button><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button></div></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div></header>
-    {G.pending && <div className="prompt">{pendingText(G.pending, language)}</div>}
+    <header><div className="brand"><p>POLITIKUM · SOLO</p><small className="version">#{BUILD_VERSION}</small><div className="header-actions"><button className="log-toggle" title={language === 'en' ? 'Toggle history' : 'Показать/скрыть хронику'} onClick={() => setLogOpen((open) => !open)}>{language === 'en' ? 'L' : 'Л'}</button><button className="report-button" onClick={() => { setBugStatus(''); setBugOpen(true); }}>{ui.reportBug}</button><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button></div></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div></header>
+    {showPendingPrompt && <div className="prompt">{pendingText(G.pending, language)}</div>}
     {G.response && canAnswerResponse && <div className="prompt response">{language === 'en' ? `Response: ${responseSeconds}s · ${G.response.kind === 'cancel_action' ? 'play Yasos Biba or Volunteering to cancel the action' : G.response.kind === 'cancel_persona_ability' ? 'play Volunteering to cancel this character ability' : 'play Working for the Kremlin'}.` : `Ответ: ${responseSeconds}с · ${G.response.kind === 'cancel_action' ? 'сыграйте «Ясос Биба» или «Волонтёрство», чтобы отменить действие' : G.response.kind === 'cancel_persona_ability' ? 'сыграйте «Волонтёрство», чтобы отменить способность персонажа' : 'сыграйте «Работа на Кремль»'}.`}{canNakiCancel && <button onClick={() => client.moves.persona10CancelFromCoalition()}>{language === 'en' ? 'Discard Naki: cancel effect' : 'Сбросить Наки: отменить эффект'}</button>}</div>}
-    {actionNotice && <div className="action-notice">{language === 'en' ? `“${actionNotice}” was played against you` : `Против вас сыграли «${actionNotice}»`}</div>}
     {G.response?.persona8Swap?.playerId === '0' && <button className="persona8-response" onClick={() => client.moves.persona8SwapWithPlayedPersona()}>{language === 'en' ? `Swap Persona 8 for ${G.response.personaCard?.name || 'the played resident'}` : `Поменять Персону 8 на ${G.response.personaCard?.name || 'сыгранного персонажа'}`}</button>}
     {eventReveal && <div className="event-flyby" style={{ '--event-flyby-ms': `${eventRevealMs}ms` }} aria-live="polite"><img src={cardImage(eventReveal, language)} alt={eventReveal.name || eventReveal.id} /></div>}
     {G.pending?.kind === 'action_4_discard_cost' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? 'Volunteering — choose a card to discard as the casting cost' : 'Волонтёрство — выберите карту как стоимость розыгрыша'}</b><small>{language === 'en' ? 'The action card has already been played.' : 'Карта действия уже разыграна.'}</small><div className="fan">{(me?.hand || []).map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.action4DiscardCastingCost(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
@@ -461,8 +448,8 @@ export default function App() {
     {G.pending?.kind === 'persona_45_steal_from_opponent' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker persona45-choice"><b>{language === 'en' ? 'Shulman — choose an opponent' : 'Шульман — выберите соперника'}</b><small>{language === 'en' ? 'A random card will be stolen from their hand.' : 'Из его руки будет украдена случайная карта.'}</small><div className="persona45-opponents">{G.players.filter((player) => player.active && player.id !== '0').map((player) => <button key={player.id} onClick={() => client.moves.persona45StealFromOpponent(player.id)}><strong>{player.name}</strong><span>{player.hand.length} {language === 'en' ? 'cards in hand' : 'карт в руке'}</span></button>)}</div></section></div>}
     {G.pending?.kind === 'event_16_discard_self_persona_then_draw1' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? 'Political [REDACTED] — choose a resident to discard' : 'Политический [РОСКОМНАДЗОР] — выберите персону для сброса'}</b><div className="fan">{(me?.coalition || []).filter((card) => isRoizmanTarget(card) && baseId(card.id) !== 'persona_31').map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.discardPersonaFromOwnCoalitionForEvent16(card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}
     {G.pending?.kind === 'persona_7_swap_two_in_coalition' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker"><b>{language === 'en' ? `Kasparov — choose ${kasparovFirst ? 'the second resident in the same coalition' : 'the first resident'}` : `Каспаров — выберите ${kasparovFirst ? 'вторую персону в той же коалиции' : 'первую персону'}`}</b><div className="fan">{(kasparovFirst ? (G.players.find((p) => p.id === kasparovFirst.ownerId)?.coalition || []).filter((card) => card.type === 'persona' && card.id !== kasparovFirst.cardId) : G.players.flatMap((player) => (player.coalition || []).filter((card) => card.type === 'persona').map((card) => ({ ...card, ownerId: player.id })))).map((card) => <Card card={card} language={language} key={card.id} onClick={() => { if (!kasparovFirst) setKasparovFirst({ ownerId: card.ownerId, cardId: card.id }); else client.moves.persona7SwapTwoInCoalition(kasparovFirst.ownerId, kasparovFirst.cardId, card.id); }} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div>{kasparovFirst && <button onClick={() => setKasparovFirst(null)}>{language === 'en' ? 'Choose first again' : 'Выбрать первую заново'}</button>}</section></div>}
-    <section className="table">
-      <aside className="log"><b>{ui.log}</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{language === 'en' ? englishLog(line) : line}</small>)}</aside>
+    <section className={`table ${logOpen ? '' : 'table-log-hidden'}`}>
+      {logOpen && <aside className="log"><b>{ui.log}</b>{[...G.log].slice(-40).reverse().map((line, index) => <small key={`${index}-${line}`}>{language === 'en' ? englishLog(line) : line}</small>)}</aside>}
       <section className="coalitions">{G.players.filter((p) => p.active).map((player) => {
         const selectingSvtv = G.pending?.kind === 'persona_3_choice' && String(G.pending.playerId) === '0';
         const selectingPevchih = G.pending?.kind === 'persona_5_pick_liberal' && String(G.pending.playerId) === '0';
