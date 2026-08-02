@@ -3751,7 +3751,9 @@ export const PolitikumGame = {
           } else {
             (G as any).pending = { kind: 'discard_down_to_7', playerId: String(playerID), sourceCardId: 'hand_limit' } as any;
             (G as any).debugLastEndTurnReject = 'hand_limit';
-            return INVALID_MOVE;
+            // This is a valid pause before ending the turn. Returning
+            // INVALID_MOVE here rolls the pending modal state back.
+            return;
           }
         }
       } catch {}
