@@ -3895,6 +3895,11 @@ export const PolitikumGame = {
           G.handRevealUntilMs = nowMs() + 3000;
         }
         G.hasPlayed = true;
+        // A second-draw event may create a blocking choice (for example a
+        // discard or token target). Keep the current turn alive until that
+        // event chain is resolved; otherwise the next player starts while the
+        // previous event is still waiting for input.
+        if (G.pending || G.response) return;
         if (maybeEndAfterRound(G, ctx, events)) return;
         events.endTurn?.();
       }
