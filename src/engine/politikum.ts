@@ -68,6 +68,8 @@ export type PolitikumState = {
   // round-end handling: once someone reaches 7 coalition, finish the round
   roundEnding?: boolean;
   roundEndTurn?: number | null; // ctx.turn at which the game should end (after the last player finishes)
+  roundEndPlayerId?: string | null; // player who first reached 7 coalition cards
+  roundEndTriggerTurn?: number | null;
 
   // score history for charts
   history?: Array<{ turn: number; scores: Record<string, number> }>;
@@ -88,6 +90,7 @@ export type PolitikumState = {
     | { kind: 'persona_5_pick_liberal'; playerId: string; sourceCardId: string }
     | { kind: 'persona_7_swap_two_in_coalition'; playerId: string; sourceCardId: string }
     | { kind: 'persona_45_steal_from_opponent'; playerId: string; sourceCardId: string }
+    | { kind: 'persona_9_choose_opponent'; playerId: string; sourceCardId: string }
     | { kind: 'persona_16_discard3_from_hand'; playerId: string; sourceCardId: string }
     | { kind: 'persona_21_pick_target_invert'; playerId: string; sourceCardId: string }
     | { kind: 'persona_23_choose_self_inflict_draw'; playerId: string; sourceCardId: string; taken?: number }
@@ -603,24 +606,37 @@ function maybeTriggerRoundEnd(G: PolitikumState, ctx: any) {
   const trigger = (G.players || []).find((pp: any) => (pp.coalition || []).length >= 7);
   if (!trigger) return;
 
-  // Finish the round: allow remaining ACTIVE players (after the current player) to take their turns,
-  // until it's the current player's turn again.
-  // Note: ctx.numPlayers includes inactive seats; we must use only active seats.
-  const active = (G.activePlayerIds || []).map(String).filter((id) => {
-    const p = (G.players || []).find((pp: any) => String(pp.id) === String(id));
-    return !!p?.active;
-  });
-
-  // After someone reaches 7 coalition, finish the round: let EVERY OTHER active player
-  // take exactly one more turn (regardless of current position in the ring).
-  const remaining = Math.max(0, active.length - 1);
   G.roundEnding = true;
-  G.roundEndTurn = Number(ctx.turn || 0) + remaining;
-  G.log.push(`Конец раунда: кто-то собрал 7 карт. Осталось ходов: ${remaining}.`);
+  G.roundEndPlayerId = String(trigger.id);
+  G.roundEndTriggerTurn = Number(ctx.turn || 0);
+  G.roundEndTurn = null;
+  G.log.push(`Конец раунда: ${trigger.name || trigger.id} собрал 7 карт. Игра завершится, когда ход вернётся к нему.`);
+}
+
+function clearRoundEndIfTriggerDropped(G: PolitikumState) {
+  if (!G.roundEnding) return;
+  const trigger: any = (G.players || []).find((pp: any) => String(pp.id) === String(G.roundEndPlayerId || ''));
+  if (!trigger || (trigger.coalition || []).length < 7) {
+    G.roundEnding = false;
+    G.roundEndPlayerId = null;
+    G.roundEndTriggerTurn = null;
+    G.roundEndTurn = null;
+  }
 }
 
 function maybeEndAfterRound(G: PolitikumState, ctx: any, events: any) {
   if (!G.roundEnding) return false;
+
+  const trigger: any = (G.players || []).find((pp: any) => String(pp.id) === String(G.roundEndPlayerId || ''));
+  // The trigger is provisional: if its seventh card is removed before its next
+  // turn, the round-end condition disappears entirely.
+  if (!trigger || (trigger.coalition || []).length < 7) {
+    G.roundEnding = false;
+    G.roundEndPlayerId = null;
+    G.roundEndTriggerTurn = null;
+    G.roundEndTurn = null;
+    return false;
+  }
 
   // Do not end the game while any pending interaction or response window exists.
   // Otherwise the last-turn player can get a pending modal while the winner already sees gameOver.
@@ -629,9 +645,9 @@ function maybeEndAfterRound(G: PolitikumState, ctx: any, events: any) {
     if ((G as any).response && !responseExpired(G)) return false;
   } catch {}
 
-  const t = Number(G.roundEndTurn ?? -1);
-  if (t < 0) return false;
-  if (Number(ctx.turn || 0) >= t) {
+  const triggerTurn = Number(G.roundEndTriggerTurn ?? -1);
+  if (triggerTurn < 0) return false;
+  if (String(ctx.currentPlayer) === String(G.roundEndPlayerId) && Number(ctx.turn || 0) > triggerTurn) {
     endGameNow(G, ctx, events);
     return true;
   }
@@ -1023,8 +1039,15 @@ export const PolitikumGame = {
           // If round-end quota is already exhausted, end immediately before granting a fresh turn.
           try {
             if (G.roundEnding) {
-              const t = Number(G.roundEndTurn ?? -1);
-              if (t >= 0 && Number(ctx?.turn || 0) >= t && !(G as any).pending && !(G as any).response) {
+              const trigger: any = (G.players || []).find((pp: any) => String(pp.id) === String(G.roundEndPlayerId || ''));
+              if (!trigger || (trigger.coalition || []).length < 7) {
+                G.roundEnding = false;
+                G.roundEndPlayerId = null;
+                G.roundEndTriggerTurn = null;
+                G.roundEndTurn = null;
+              } else if (String(ctx?.currentPlayer) === String(G.roundEndPlayerId)
+                && Number(ctx?.turn || 0) > Number(G.roundEndTriggerTurn ?? -1)
+                && !(G as any).pending && !(G as any).response) {
                 endGameNow(G, ctx, events);
                 return;
               }
@@ -1240,6 +1263,8 @@ export const PolitikumGame = {
       G.victoryReason = null;
       G.roundEnding = false;
       G.roundEndTurn = null;
+      G.roundEndPlayerId = null;
+      G.roundEndTriggerTurn = null;
       G.handRevealPlayerId = null;
       G.handRevealUntilMs = null;
       G.lastEvent = null;
@@ -1364,6 +1389,7 @@ export const PolitikumGame = {
 
       const [c] = owner.coalition.splice(idx, 1);
       if (c) { G.discard.push(c); if ((c as any).type === 'persona') persona44OnPersonaDiscarded(G); }
+      clearRoundEndIfTriggerDropped(G);
       const me = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       const src = String(pend?.sourceCardId || '');
       const srcName = src ? cardTitle({ id: src }) : '';
@@ -1609,6 +1635,7 @@ export const PolitikumGame = {
         }
       }
       G.pending = null;
+      clearRoundEndIfTriggerDropped(G);
       recalcPassives(G);
       if (maybeEndAfterRound(G, ctx, events)) return;
       events.endTurn?.();
@@ -3849,7 +3876,8 @@ export const PolitikumGame = {
 
       // Normal play: only active player can play.
       if (playerID !== ctx.currentPlayer) return INVALID_MOVE;
-      if (G.pending) return INVALID_MOVE;
+      const choosingPonomaryov = G.pending?.kind === 'persona_9_choose_opponent' && String(G.pending.playerId) === String(playerID);
+      if (G.pending && !choosingPonomaryov) return INVALID_MOVE;
       if (G.response && !responseExpired(G)) return INVALID_MOVE;
       if (!G.hasDrawn) return INVALID_MOVE;
       const plays = Number(G.playsThisTurn || 0);
@@ -3864,6 +3892,14 @@ export const PolitikumGame = {
       if (c.type !== 'persona') return INVALID_MOVE;
 
       const base = baseId(String(c.id));
+
+      // Ponomaryov must enter an opponent coalition, but the human chooses
+      // which opponent instead of silently targeting the first one.
+      if (base === 'persona_9' && !targetPlayerId) {
+        G.pending = { kind: 'persona_9_choose_opponent', playerId: String(playerID), sourceCardId: String(c.id) } as any;
+        return;
+      }
+      if (choosingPonomaryov) G.pending = null;
 
       // Persona 8 becomes ready again only after it left play and is deployed anew.
       if (base === 'persona_8') delete (c as any)._p8Used;
@@ -4423,6 +4459,7 @@ export const PolitikumGame = {
       }
 
       G.pending = null;
+      clearRoundEndIfTriggerDropped(G);
 
       // persona_13 (Venediktov): retaliate after an opponent action targeted your coalition
       try {
