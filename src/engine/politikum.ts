@@ -3541,7 +3541,11 @@ export const PolitikumGame = {
 
             const c = p.hand[idxP];
             p.hand.splice(idxP, 1);
-            if (LEFT_BONUS_PERSONAS.has(baseId(String(c.id)))) p.coalition.unshift(c);
+            const cBase = baseId(String(c.id));
+            const hasActiveNadezhdin = (p.coalition || []).some((cc: any) => baseId(String(cc.id)) === 'persona_25' && !cc.blockedAbilities);
+            // Persona 9 is temporarily placed in the bot's coalition before
+            // being moved to an opponent below, so keep it at the end here.
+            if (cBase !== 'persona_9' && (LEFT_BONUS_PERSONAS.has(cBase) || hasActiveNadezhdin)) p.coalition.unshift(c);
             else p.coalition.push(c);
             debugTrace(G, 'bot_play_persona', { player: String(p.id), card: String(c.id), ability: String(c.abilityKey || ''), coalitionSize: Number(p.coalition.length) });
 
