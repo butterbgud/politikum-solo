@@ -832,6 +832,21 @@ function openNakiResponseForPending(G: any) {
   (G as any).botPauseUntilMs = Number(G.response.expiresAtMs);
 }
 
+function openVenediktovChoice(G: any, targetOwner: any, attacker: any, sourceCardId: string) {
+  if (!targetOwner || !attacker || String(targetOwner.id) === String(attacker.id)) return false;
+  const hasVenediktov = (targetOwner.coalition || []).some((c: any) =>
+    c?.type === 'persona' && baseId(String(c.id)) === 'persona_13' && !c.blockedAbilities && !c.shielded);
+  const attackerHasPersona = (attacker.coalition || []).some((c: any) => c?.type === 'persona' && baseId(String(c.id)) !== 'persona_31');
+  if (!hasVenediktov || !attackerHasPersona) return false;
+  G.pending = {
+    kind: 'persona_13_pick_target',
+    playerId: String(targetOwner.id),
+    attackerId: String(attacker.id),
+    sourceCardId: String(sourceCardId || ''),
+  } as any;
+  return true;
+}
+
 function applyAdjacencyBonusesAround(G: PolitikumState, owner: any, placedCard: any) {
   try {
     if (!owner || !placedCard) return;
@@ -1540,8 +1555,10 @@ export const PolitikumGame = {
       }
       G.log.push(`${ruYou(me.name)} (${self?.name || self?.text || 'persona_5'}): сбросил ${drop?.name || drop?.id} и украл ${tok} жетон(ов).`);
 
-      (G as any).pending = null;
+      const triggeredVenediktov = openVenediktovChoice(G, owner, me, pend.sourceCardId);
+      if (!triggeredVenediktov) (G as any).pending = null;
       recalcPassives(G);
+      if (triggeredVenediktov) return;
       maybeTriggerRoundEnd(G, ctx);
       if (maybeEndAfterRound(G, ctx, events)) return;
       events.endTurn?.();
@@ -1868,7 +1885,7 @@ export const PolitikumGame = {
       const me = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
       G.log.push(`${ruYou(me?.name || playerID)} перевернул жетоны на ${target.name || target.id} (${before} → ${target.vpDelta}).`);
 
-      (G as any).pending = null;
+      if (!openVenediktovChoice(G, owner, me, pend.sourceCardId)) (G as any).pending = null;
     },
 
     persona23ChooseSelfInflict: ({ G, playerID }: any, n: number) => {
@@ -1959,7 +1976,7 @@ export const PolitikumGame = {
       recalcPassives(G);
       G.log.push(`${actorWithPersona(me, 'persona_26')} сбросил ${target.name || target.id} и унаследовал ${plus} × +1.`);
 
-      (G as any).pending = null;
+      if (!openVenediktovChoice(G, owner, me, pend.sourceCardId)) (G as any).pending = null;
     },
 
     persona28StealPlusTokens: ({ G, playerID }: any, ownerId: string, coalitionCardId: string, n?: number) => {
@@ -1996,7 +2013,7 @@ export const PolitikumGame = {
       recalcPassives(G);
       G.log.push(`${actorWithPersona(me, 'persona_28')} украл ${take} × +1 у ${target.name || target.id}.`);
 
-      (G as any).pending = null;
+      if (!openVenediktovChoice(G, owner, me, pend.sourceCardId)) (G as any).pending = null;
     },
 
     // Persona 11 (Solovei): optional at start of turn
@@ -2067,7 +2084,8 @@ export const PolitikumGame = {
 
       G.log.push(`${ruYou(me.name)} (Соловей): сбросил себя и ${drop?.name || drop?.id} у ${owner.name}.`);
 
-      (G as any).pending = null;
+      const triggeredVenediktov = openVenediktovChoice(G, owner, me, pend.sourceCardId);
+      if (!triggeredVenediktov) (G as any).pending = null;
       recalcPassives(G);
     },
 
@@ -2118,7 +2136,8 @@ export const PolitikumGame = {
       me.hand.push(c);
       G.log.push(`${ruYou(me.name)} (Арно) забрал ${c.name || c.id} из руки ${target.name}.`);
 
-      if (me.hand.length > 7) { (G as any).pending = { kind: 'discard_down_to_7', playerId: String(playerID), sourceCardId: 'hand_limit' } as any; } else { (G as any).pending = null; }
+      if (me.hand.length > 7) { (G as any).pending = { kind: 'discard_down_to_7', playerId: String(playerID), sourceCardId: 'hand_limit' } as any; }
+      else if (!openVenediktovChoice(G, target, me, pend.sourceCardId)) (G as any).pending = null;
       recalcPassives(G);
     },
 
@@ -2241,7 +2260,7 @@ export const PolitikumGame = {
       const selfName = String(self37?.name || self37?.text || 'persona_37');
       G.log.push(`${ruYou(me.name)} ${selfName} подкупил ${target.name || target.id} (+2) и навсегда заблокировал способности.`);
 
-      (G as any).pending = null;
+      if (!openVenediktovChoice(G, owner, me, pend.sourceCardId)) (G as any).pending = null;
     },
 
     persona33ChooseFaction: ({ G, playerID }: any, factionTag: string) => {
@@ -2614,9 +2633,11 @@ export const PolitikumGame = {
             const [cancel] = responder.hand.splice(handIndex, 1);
             if (cancel) G.discard.push(cancel);
             const playedId = String(rr.personaCard?.id || '');
+            let cancelledOwner: any = null;
             for (const owner of (G.players || [])) {
               const coalitionIndex = (owner.coalition || []).findIndex((c: any) => String(c.id) === playedId);
               if (coalitionIndex < 0) continue;
+              cancelledOwner = owner;
               const [removed] = owner.coalition.splice(coalitionIndex, 1);
               if (removed) {
                 G.discard.push(removed);
@@ -2633,6 +2654,7 @@ export const PolitikumGame = {
             }
             recalcPassives(G);
             G.log.push(`${responder.name} сыграл «Работа на Кремль» и отменил ${rr.personaCard?.name || rr.personaCard?.id}.`);
+            const venediktovPaused = openVenediktovChoice(G, cancelledOwner, responder, rr.personaCard?.id || 'action_8');
             (G as any).botPauseUntilMs = 0;
             // The played bot had already completed its play, but its turn was
             // held open while the response window was active.  Finish that
@@ -2642,7 +2664,7 @@ export const PolitikumGame = {
             if (String(ctx.currentPlayer) === String(rr.playedBy)
               && cancelledPlayer
               && (!!cancelledPlayer.isBot || String(cancelledPlayer.name || '').startsWith('[B]'))
-              && G.hasDrawn && G.hasPlayed && !(G as any).pending) {
+              && G.hasDrawn && G.hasPlayed && !(G as any).pending && !venediktovPaused) {
               if (maybeEndAfterRound(G, ctx, events)) return;
               events.endTurn?.();
             } else {
