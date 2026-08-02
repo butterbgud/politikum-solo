@@ -1473,21 +1473,17 @@ export const PolitikumGame = {
         }
         G.log.push(`${ruYou(me.name)} (${pend.sourceCardId}): сбросил ${drop?.name || drop?.id} (левые) у ${owner.name}.`);
       } else {
-        // Remove every +1 token from leftwing personas currently in play.
-        let removed = 0;
+        // Give every left-wing persona one actual negative token.
+        let affected = 0;
         for (const p of (G.players || [])) {
           for (const c of (p.coalition || [])) {
             if (c.type !== 'persona') continue;
             if (!Array.isArray(c.tags) || !c.tags.includes('faction:leftwing')) continue;
-            const cur = Number(c.vpDelta || 0);
-            const take = Math.max(0, cur);
-            if (take > 0) {
-              applyTokenDelta(G, c, -take);
-              removed += take;
-            }
+            applyTokenDelta(G, c, -1);
+            affected++;
           }
         }
-        G.log.push(`${ruYou(me.name)} (${pend.sourceCardId}): снял ${removed} × +1 со всех левых.`);
+        G.log.push(`${ruYou(me.name)} (${pend.sourceCardId}): дал -1 ${affected} левым персонажам.`);
       }
 
       // Both announced SVTV options cost one −1 token.
@@ -3002,17 +2998,16 @@ export const PolitikumGame = {
                   G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): сбросил ${drop?.name || drop?.id} (левые) у ${owner.name}.`);
                 }
               } else {
-                let removed = 0;
+                let affected = 0;
                 for (const pp of (G.players || [])) {
                   for (const c of (pp.coalition || [])) {
                     if (c.type !== 'persona') continue;
                     if (!Array.isArray(c.tags) || !c.tags.includes('faction:leftwing')) continue;
-                    const cur = Number(c.vpDelta || 0);
-                    const take = Math.max(0, cur);
-                    if (take > 0) { applyTokenDelta(G, c, -take); removed += take; }
+                    applyTokenDelta(G, c, -1);
+                    affected++;
                   }
                 }
-                G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): снял ${removed} × +1 со всех левых.`);
+                G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): дал -1 ${affected} левым персонажам.`);
               }
             } catch {}
             try {
