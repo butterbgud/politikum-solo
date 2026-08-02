@@ -574,6 +574,11 @@ function persona38OnEventPlayed(G: PolitikumState, eventCard: any) {
 }
 
 function endGameNow(G: PolitikumState, ctx: any, events: any) {
+  // Never finalize while a player still has an unresolved choice. This is
+  // especially important during round-end turns: Roizman may still be able
+  // to discard the seventh coalition card and cancel the end condition.
+  if ((G as any).pending) return;
+  if ((G as any).response && !responseExpired(G)) return;
   const activePlayers = (G.players || []).filter((pp: any) => pp.active !== false);
   const bestScore = activePlayers.reduce((best: number, pp: any) => Math.max(best, scorePlayer(pp)), 0);
   const winners = activePlayers.filter((pp: any) => scorePlayer(pp) === bestScore);
@@ -1113,7 +1118,7 @@ export const PolitikumGame = {
 
           // Rules: game ends if deck is empty at end of a turn.
           try {
-            if (!G.gameOver && Array.isArray(G.deck) && G.deck.length <= 0) {
+            if (!G.gameOver && !G.pending && !(G.response && !responseExpired(G)) && Array.isArray(G.deck) && G.deck.length <= 0) {
               endGameNow(G, ctx, events);
             }
           } catch {}
