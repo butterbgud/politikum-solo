@@ -125,6 +125,11 @@ export type PolitikumState = {
         personaCard: PolitikumCard;
         expiresAtMs: number;
       }
+    | {
+        kind: 'cancel_persona_ability';
+        playedBy: string;
+        expiresAtMs: number;
+      }
     | null;
 
   // bot pacing
@@ -639,11 +644,13 @@ const LEFT_BONUS_PERSONAS = new Set(['persona_1', 'persona_19', 'persona_42']);
 
 // A human deserves time to read and react; bot-only windows are merely a
 // pacing beat, so they should never make solo play feel like network latency.
-function responseWindowMs(G: PolitikumState, kind: 'cancel_action' | 'cancel_persona', playedBy: string, persona8Swap?: any) {
+function responseWindowMs(G: PolitikumState, kind: 'cancel_action' | 'cancel_persona' | 'cancel_persona_ability', playedBy: string, persona8Swap?: any) {
   const human: any = (G.players || []).find((p: any) => String(p.id) === '0' && p.active);
   if (!human || String(playedBy) === '0') return RESPONSE_BOT_MS;
   const hasReaction = kind === 'cancel_persona'
     ? (human.hand || []).some((card: any) => baseId(String(card.id)) === 'action_8')
+    : kind === 'cancel_persona_ability'
+      ? (human.hand || []).some((card: any) => baseId(String(card.id)) === 'action_14')
     : (human.hand || []).some((card: any) => {
         const id = baseId(String(card.id));
         return id === 'action_6' || id === 'action_14';
@@ -803,7 +810,7 @@ function openNakiResponseForPending(G: any) {
   G.response = {
     kind: 'cancel_persona_ability',
     playedBy: actorId,
-    expiresAtMs: nowMs() + RESPONSE_ACTION_MS,
+    expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_persona_ability', actorId),
     allowPersona10By: String(owner.id),
   } as any;
   (G as any).botPauseUntilMs = Number(G.response.expiresAtMs);
@@ -835,6 +842,24 @@ function maybeResolveDeferredPersona(G: PolitikumState) {
   // Only resolve once response window is gone.
   if (G.response && !responseExpired(G)) return false;
   if (G.response && responseExpired(G)) G.response = null;
+
+  // Give Action 14 a chance to stop a bot's character ability before its
+  // on-enter effect resolves. The pending marker prevents reopening the same
+  // window after it expires.
+  const ownerBefore: any = (G.players || []).find((pp: any) => (pp.coalition || []).some((cc: any) => String(cc.id) === String(pend.personaId || '')));
+  const human: any = (G.players || []).find((pp: any) => String(pp.id) === '0' && pp.active);
+  if (!(pend as any).abilityResponseOffered
+    && ownerBefore && String(ownerBefore.id) !== '0'
+    && human?.hand?.some((card: any) => baseId(String(card.id)) === 'action_14')) {
+    (pend as any).abilityResponseOffered = true;
+    G.response = {
+      kind: 'cancel_persona_ability',
+      playedBy: String(ownerBefore.id),
+      expiresAtMs: nowMs() + responseWindowMs(G, 'cancel_persona_ability', String(ownerBefore.id)),
+    } as any;
+    (G as any).botPauseUntilMs = Number(G.response.expiresAtMs);
+    return false;
+  }
 
   try {
     const pid = String(pend.personaId || '');
@@ -4154,7 +4179,23 @@ export const PolitikumGame = {
         }
 
         // action_14: if YOU are the target of an action (e.g. action_4/9), cancel its effect.
-        if (base === 'action_14' && G.response?.kind === 'cancel_action' && !responseExpired(G) && (G.pending?.kind === 'action_4_discard' || G.pending?.kind === 'action_9_discard_persona') && String(G.pending?.targetId) === String(playerID)) {
+        if (base === 'action_14' && G.response?.kind === 'cancel_persona_ability' && !responseExpired(G) && String(G.response.playedBy) !== String(playerID)) {
+          me.hand.splice(idx, 1);
+          G.discard.push(c);
+          G.lastAction = c;
+          G.pending = null;
+          G.log.push(`${ruYou(me.name)} отменил способность персонажа используя "${actionTitle(c)}".`);
+          G.response = null;
+          (G as any).botPauseUntilMs = 0;
+          return;
+        }
+
+        const cancelableActionPending = G.pending?.kind === 'action_4_discard'
+          || G.pending?.kind === 'action_9_discard_persona'
+          || G.pending?.kind === 'action_17_choose_opponent_persona';
+        const actionTargetsMe = G.pending?.kind === 'action_17_choose_opponent_persona'
+          || String(G.pending?.targetId) === String(playerID);
+        if (base === 'action_14' && G.response?.kind === 'cancel_action' && !responseExpired(G) && cancelableActionPending && actionTargetsMe) {
           me.hand.splice(idx, 1);
           G.discard.push(c);
           G.lastAction = c;
