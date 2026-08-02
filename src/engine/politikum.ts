@@ -3653,6 +3653,25 @@ export const PolitikumGame = {
             } catch {
               G.log.push(`${p.name} played ${c.name || c.id} to Coalition.`);
             }
+
+            // Svetov is global: every right-wing entrant gives every existing
+            // Svetov +2, while every liberal entrant gives each one -1,
+            // regardless of which coalition received the persona.
+            try {
+              const cBaseNow = baseId(String(c.id));
+              if (cBaseNow !== 'persona_22') {
+                const isLiberal = Array.isArray((c as any).tags) && (c as any).tags.includes('faction:liberal');
+                const isRight = Array.isArray((c as any).tags) && (c as any).tags.includes('faction:rightwing');
+                const delta = isLiberal ? -1 : (isRight ? 2 : 0);
+                if (delta) {
+                  for (const pp of (G.players || [])) {
+                    for (const cc of (pp.coalition || [])) {
+                      if (baseId(String(cc.id)) === 'persona_22') applyTokenDelta(G, cc as any, delta);
+                    }
+                  }
+                }
+              }
+            } catch {}
             // Do not execute on-enter abilities before the action_8 response
             // window.  In particular, Arno creates a follow-up picker; if
             // another bot cancels Arno, that picker must never be created.
