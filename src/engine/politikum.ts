@@ -700,6 +700,7 @@ function responseWindowMs(G: PolitikumState, kind: 'cancel_action' | 'cancel_per
     ? (human.hand || []).some((card: any) => baseId(String(card.id)) === 'action_8')
     : kind === 'cancel_persona_ability'
       ? (human.hand || []).some((card: any) => baseId(String(card.id)) === 'action_14')
+        || (human.coalition || []).some((card: any) => card?.type === 'persona' && baseId(String(card.id)) === 'persona_10')
     : (human.hand || []).some((card: any) => {
         const id = baseId(String(card.id));
         return id === 'action_6' || id === 'action_14';
