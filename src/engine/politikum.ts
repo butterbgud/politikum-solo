@@ -216,11 +216,14 @@ function scorePlayer(pp: any) {
   return (pp.coalition || []).reduce((s: number, c: any) => s + Number(c.vp ?? (c.baseVp || 0)), 0);
 }
 
-function action4BotDiscardIndex(player: any) {
+function action4BotDiscardIndex(player: any, excludeNaki = false) {
   const coalition: any[] = Array.isArray(player?.coalition) ? player.coalition : [];
   const eligible = coalition
     .map((card: any, index: number) => ({ card, index }))
-    .filter(({ card }) => card?.type === 'persona' && baseId(String(card.id)) !== 'persona_31' && !card.shielded);
+    .filter(({ card }) => card?.type === 'persona'
+      && baseId(String(card.id)) !== 'persona_31'
+      && (!excludeNaki || baseId(String(card.id)) !== 'persona_10')
+      && !card.shielded);
   if (!eligible.length) return -1;
 
   const heldOrCoalition = new Set<string>([
@@ -245,6 +248,31 @@ function action4BotDiscardIndex(player: any) {
     return Number(a.card.vp ?? a.card.baseVp ?? 0) - Number(b.card.vp ?? b.card.baseVp ?? 0);
   });
   return eligible[0].index;
+}
+
+// Naki cancels the targeted effect by being discarded herself.  A bot should
+// spend her when the normal discard would lose more current VP than Naki does.
+// Compare current `vp` (including tokens/passives), not the printed base value.
+function botShouldUseNakiForAction(target: any, intendedDrop: any) {
+  if (!target) return false;
+  const naki = (target.coalition || []).find((card: any) =>
+    card?.type === 'persona' && baseId(String(card.id || '')) === 'persona_10');
+  if (!naki) return false;
+  if (!intendedDrop) return true;
+  if (naki === intendedDrop) return false;
+  return Number(naki.vp ?? naki.baseVp ?? 0) < Number(intendedDrop.vp ?? intendedDrop.baseVp ?? 0);
+}
+
+function discardBotNakiToCancelAction(G: any, target: any) {
+  const nakiIndex = (target?.coalition || []).findIndex((card: any) =>
+    card?.type === 'persona' && baseId(String(card.id || '')) === 'persona_10');
+  if (nakiIndex < 0) return false;
+  const [naki] = target.coalition.splice(nakiIndex, 1);
+  if (!naki) return false;
+  G.discard.push(naki);
+  persona44OnPersonaDiscarded(G);
+  G.log.push(`${target.name} сбросил Наки, отменив эффект действия.`);
+  return true;
 }
 
 function clearDetachedPersonaTokens(card: any) {
@@ -2771,9 +2799,12 @@ export const PolitikumGame = {
           G.pending = { kind: 'action_4_discard', attackerId: String(p.id), targetId: tid, sourceCardId: String(pend0.sourceCardId) } as any;
           G.log.push(`${ruYou(p.name)} выбрал целью действия ${target.name}.`);
           if (String(target.name || '').startsWith('[B]')) {
-            const dropIndex = action4BotDiscardIndex(target);
-            const drop = dropIndex >= 0 ? (target.coalition || []).splice(dropIndex, 1)[0] : null;
-            if (drop) { G.discard.push(drop); if (drop.type === 'persona') persona44OnPersonaDiscarded(G); G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`); }
+            const dropIndex = action4BotDiscardIndex(target, true);
+            const drop = dropIndex >= 0 ? (target.coalition || [])[dropIndex] : null;
+            const useNaki = botShouldUseNakiForAction(target, drop);
+            if (useNaki) discardBotNakiToCancelAction(G, target);
+            else if (dropIndex >= 0) (target.coalition || []).splice(dropIndex, 1);
+            if (!useNaki && drop) { G.discard.push(drop); if (drop.type === 'persona') persona44OnPersonaDiscarded(G); G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`); }
             G.pending = null;
             G.response = null;
             recalcPassives(G);
@@ -4165,9 +4196,12 @@ export const PolitikumGame = {
       G.log.push(`${ruYou(actor?.name || playerID)} выбрал целью действия ${target.name}.`);
 
       if (String(target.name || '').startsWith('[B]')) {
-        const dropIndex = action4BotDiscardIndex(target);
+        const dropIndex = action4BotDiscardIndex(target, true);
         const drop = dropIndex >= 0 ? (target.coalition || [])[dropIndex] : null;
-        if (drop) {
+        const useNaki = botShouldUseNakiForAction(target, drop);
+        if (useNaki) {
+          discardBotNakiToCancelAction(G, target);
+        } else if (drop) {
           target.coalition.splice(dropIndex, 1);
           G.discard.push(drop);
           if (drop.type === 'persona') persona44OnPersonaDiscarded(G);
@@ -4373,12 +4407,17 @@ export const PolitikumGame = {
         G.pending = { kind: 'action_9_discard_persona', attackerId: String(playerID), playerId: String(playerID), targetId: tid, sourceCardId: String(c.id) };
         G.log.push(target ? `${ruYou(me.name)} разыграл Вывод во внешний контур на ${target.name}.` : `${ruYou(me.name)} разыграл Вывод во внешний контур: выберите персонажа в любой коалиции.`);
 
-        // If target is a bot, auto-discard immediately (first persona)
+        // If target is a bot, auto-discard immediately. Naki may cancel the
+        // action when that saves more current VP than losing the target.
         if (target && String(playerID) !== '0' && String(target.name || '').startsWith('[B]')) {
           const j = (target.coalition || []).findIndex((cc: any) => cc.type === 'persona');
           if (j >= 0) {
-            const [drop] = target.coalition.splice(j, 1);
-            if (drop) {
+            const drop = target.coalition[j];
+            const useNaki = botShouldUseNakiForAction(target, drop);
+            if (useNaki) {
+              discardBotNakiToCancelAction(G, target);
+            } else {
+              target.coalition.splice(j, 1);
               G.discard.push(drop);
               if ((drop as any).type === 'persona') persona44OnPersonaDiscarded(G);
               G.log.push(`${target.name} сбросил ${drop.name || drop.id} из коалиции.`);
