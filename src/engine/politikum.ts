@@ -881,6 +881,22 @@ function openVenediktovChoice(G: any, targetOwner: any, attacker: any, sourceCar
     c?.type === 'persona' && baseId(String(c.id)) === 'persona_13' && !c.blockedAbilities && !c.shielded);
   const attackerHasPersona = (attacker.coalition || []).some((c: any) => c?.type === 'persona' && baseId(String(c.id)) !== 'persona_31');
   if (!hasVenediktov || !attackerHasPersona) return false;
+
+  // A bot may be the retaliation owner while the attacker still has the
+  // active human turn. In that case no future bot turn will arrive to service
+  // the pending picker, so resolve the bot's deterministic first target here.
+  const ownerIsBot = !!targetOwner.isBot || String(targetOwner.name || '').startsWith('[B]');
+  if (ownerIsBot) {
+    const retaliationTarget = (attacker.coalition || []).find((c: any) =>
+      c?.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded);
+    if (retaliationTarget) {
+      applyTokenDelta(G, retaliationTarget, -1);
+      G.log.push(`${ruYou(targetOwner.name)} (Венедиктов): дал -1 на ${retaliationTarget.name || retaliationTarget.id}.`);
+      recalcPassives(G);
+    }
+    return false;
+  }
+
   G.pending = {
     kind: 'persona_13_pick_target',
     playerId: String(targetOwner.id),
