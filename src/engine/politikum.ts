@@ -837,6 +837,15 @@ function actorWithPersona(me: any, personaBase: string) {
   return `${ruYou(me?.name)} ${pname}`;
 }
 
+function ensurePersona11Offer(G: any, playerId: string) {
+  if (G.pending || G.hasDrawn) return;
+  const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerId));
+  if (!me || !(me.coalition || []).some((c: any) => baseId(String(c.id)) === 'persona_11' && !c.blockedAbilities)) return;
+  const haveTargets = (G.players || []).some((pp: any) => String(pp.id) !== String(me.id)
+    && (pp.coalition || []).some((c: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded));
+  if (haveTargets) G.pending = { kind: 'persona_11_offer', playerId: String(me.id), sourceCardId: 'persona_11' } as any;
+}
+
 const NAKI_CANCELLABLE_ABILITIES = new Set([
   'persona_3_choice',
   'persona_5_pick_liberal',
@@ -1124,18 +1133,7 @@ export const PolitikumGame = {
           }
 
           // persona_11 (Solovei): offer at start of turn (before draw)
-          try {
-            const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(ctx.currentPlayer));
-            if (me && (me.coalition || []).some((c: any) => baseId(String(c.id)) === 'persona_11' && !c.blockedAbilities)) {
-              const haveTargets = (G.players || []).some((pp: any) => {
-                if (String(pp.id) === String(me.id)) return false;
-                return (pp.coalition || []).some((c: any) => c.type === 'persona' && baseId(String(c.id)) !== 'persona_31' && !c.shielded);
-              });
-              if (haveTargets) {
-                (G as any).pending = { kind: 'persona_11_offer', playerId: String(me.id), sourceCardId: 'persona_11' } as any;
-              }
-            }
-          } catch {}
+          try { ensurePersona11Offer(G, String(ctx.currentPlayer)); } catch {}
         },
 
         onEnd: ({ G, ctx, events }: any) => {
@@ -3882,6 +3880,11 @@ export const PolitikumGame = {
 
     drawCard: ({ G, playerID, ctx, events }: any) => {
       expireResponseAndResolveDeferred(G);
+      // The client may issue its automatic draw immediately after a turn
+      // transition. Re-check the start-of-turn Solovyov offer here so that
+      // the draw cannot outrun the onBegin hook.
+      if (String(playerID) === String(ctx.currentPlayer)) ensurePersona11Offer(G, String(playerID));
+      if (G.pending?.kind === 'persona_11_offer') return;
       // Resolve deferred persona abilities before gating on pending.
       if (G.pending && (G as any).pending?.kind === 'resolve_persona_after_response') return INVALID_MOVE;
       if (playerID !== ctx.currentPlayer) return INVALID_MOVE;
