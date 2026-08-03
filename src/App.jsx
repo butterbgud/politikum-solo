@@ -226,6 +226,7 @@ export default function App() {
   const [handLimitSelected, setHandLimitSelected] = useState([]);
   const [kasparovFirst, setKasparovFirst] = useState(null);
   const [eventReveal, setEventReveal] = useState(null);
+  const [arnoNotice, setArnoNotice] = useState('');
   const clientRef = useRef(null);
 
   const start = () => {
@@ -303,6 +304,17 @@ export default function App() {
     const timer = setTimeout(() => setEventReveal(null), revealMs);
     return () => clearTimeout(timer);
   }, [G?.lastEvent?.id, G?.responseTimeSeconds]);
+
+  const latestLog = G?.log?.[G.log.length - 1] || '';
+  useEffect(() => {
+    const match = latestLog.match(/Арно\): у (.+) нет персон в руке/);
+    if (!match) return undefined;
+    setArnoNotice(language === 'en'
+      ? `Arno: ${match[1]} has no personas in hand.`
+      : latestLog);
+    const timer = setTimeout(() => setArnoNotice(''), 3500);
+    return () => clearTimeout(timer);
+  }, [latestLog, language]);
 
   const play = (card) => {
     // Persona responses keep their source ability pending until the window
@@ -438,6 +450,7 @@ export default function App() {
     ? G.players.find((player) => String(player.id) === String(G.pending.targetId))
     : null;
   return <main className="app">
+    {arnoNotice && <div className="arno-notice" role="status" aria-live="polite">{arnoNotice}</div>}
     <header><div className="brand"><p>POLITIKUM · SOLO</p><small className="version">#{BUILD_VERSION}</small><div className="header-actions"><button className="log-toggle" title={language === 'en' ? 'Toggle history' : 'Показать/скрыть хронику'} aria-label={language === 'en' ? 'Toggle history' : 'Показать/скрыть хронику'} onClick={() => setLogOpen((open) => !open)}>{language === 'en' ? 'L' : 'Л'}</button><button className="report-button" title={ui.reportBug} aria-label={ui.reportBug} onClick={() => { setBugStatus(''); setBugOpen(true); }}><img src="/assets/report-bug.jpg" alt="" /></button><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button></div></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div></header>
     {showPendingPrompt && <div className="prompt">{pendingText(G.pending, language)}</div>}
     {G.pending?.kind === 'persona_9_choose_opponent' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker persona45-choice"><b>{language === 'en' ? 'Ponomaryov — choose an opponent' : 'Пономарёв — выберите соперника'}</b><small>{language === 'en' ? 'Ponomaryov will be added to that coalition. Current score:' : 'Пономарёв войдёт в эту коалицию. Текущий счёт:'}</small><div className="persona45-opponents">{G.players.filter((player) => player.active && player.id !== '0').map((player) => <button key={player.id} onClick={() => client.moves.playPersona(G.pending.sourceCardId, undefined, 'right', player.id)}><strong>{player.name}</strong><span>{score(player)} VP</span></button>)}</div></section></div>}
