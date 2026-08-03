@@ -1850,6 +1850,12 @@ export const PolitikumGame = {
       // with the old owner (the classic Lazerson/Roizman limbo).
       (G as any).response = null;
       try { maybeResolveDeferredPersona(G); } catch {}
+      // Volkov's ability is a player choice. Keep a defensive handoff here in
+      // case the deferred marker was already consumed during the swap move.
+      // Otherwise the ability is logged but its picker disappears immediately.
+      if (!G.pending && String(played.abilityKey || '') === 'persona_23_on_enter_self_inflict_draw') {
+        G.pending = { kind: 'persona_23_choose_self_inflict_draw', playerId: String(me.id), sourceCardId: String(played.id), taken: 0 } as any;
+      }
       (G as any).botPauseUntilMs = 0;
       (G as any).botNextActAtMs = nowMs() + 250;
     },
