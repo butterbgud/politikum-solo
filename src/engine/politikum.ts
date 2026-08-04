@@ -838,6 +838,12 @@ function actorWithPersona(me: any, personaBase: string) {
 }
 
 function ensurePersona11Offer(G: any, playerId: string) {
+  if (G.pending && (G.pending.kind === 'persona_11_offer' || G.pending.kind === 'persona_11_pick_opponent_persona')) {
+    const current = (G.players || []).find((pp: any) => String(pp.id) === String(playerId));
+    const stillActive = current?.coalition?.some((c: any) => baseId(String(c.id)) === 'persona_11' && !c.blockedAbilities);
+    if (!stillActive) G.pending = null;
+    return;
+  }
   if (G.pending || G.hasDrawn) return;
   const me: any = (G.players || []).find((pp: any) => String(pp.id) === String(playerId));
   if (!me || !(me.coalition || []).some((c: any) => baseId(String(c.id)) === 'persona_11' && !c.blockedAbilities)) return;
@@ -2093,6 +2099,7 @@ export const PolitikumGame = {
       if (!me) return INVALID_MOVE;
       const i11 = (me.coalition || []).findIndex((c: any) => baseId(String(c.id)) === 'persona_11');
       if (i11 < 0) return INVALID_MOVE;
+      if ((me.coalition[i11] as any).blockedAbilities) return INVALID_MOVE;
 
       const haveTargets = (G.players || []).some((pp: any) => {
         if (String(pp.id) === String(me.id)) return false;
@@ -2121,6 +2128,7 @@ export const PolitikumGame = {
       if (!me) return INVALID_MOVE;
       const i11 = (me.coalition || []).findIndex((c: any) => baseId(String(c.id)) === 'persona_11');
       if (i11 < 0) return INVALID_MOVE;
+      if ((me.coalition[i11] as any).blockedAbilities) return INVALID_MOVE;
 
       const owner = (G.players || []).find((pp: any) => String(pp.id) === String(ownerId));
       if (!owner || String(owner.id) === String(playerID)) return INVALID_MOVE;

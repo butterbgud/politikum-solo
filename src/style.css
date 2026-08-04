@@ -35,6 +35,7 @@
 .persona45-opponents button:hover { background: #4a2926; border-color: #f0c779; }
 .persona45-opponents span { color: #d8b992; font: 12px 'DM Mono'; white-space: nowrap; }
 .log-toggle, .report-button { width: 44px; height: 44px; padding: 0 !important; display: grid; place-items: center; overflow: hidden; }
+.persona11-picker { width: min(760px, calc(100% - 24px)); max-height: min(720px, calc(100dvh - 24px)); padding: 16px; text-align: center; }.persona11-picker > small { display: block; max-width: 520px; margin: 8px auto 0; color: #d8b992; }.persona11-targets { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; max-height: min(500px, 62dvh); padding: 18px 8px 8px; overflow: auto; }.persona11-targets .card-shell { flex: 0 0 90px; }.persona11-targets .card { width: 90px; margin-right: 0; }.persona11-targets .card:hover { transform: translateY(-8px) scale(1.08); }
 .report-button img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 /* Reserve the hidden overlap width so the final coalition card is never clipped. */
