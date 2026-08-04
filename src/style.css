@@ -41,3 +41,4 @@
 /* Reserve the hidden overlap width so the final coalition card is never clipped. */
 .coalition { padding-right: 78px; }
 @media (max-width: 840px) { .coalition { padding-right: 58px; } }
+.bug-challenge { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 9px; margin-top: 13px; color: #d1b18a; font-size: 14px; }.bug-challenge strong { color: #f3d098; font: 700 16px 'DM Mono', monospace; }.bug-challenge input { width: 76px; padding: 8px; color: #f6ead3; border: 1px solid #9b693f; background: #160d0f; font: 700 16px 'DM Mono', monospace; }
