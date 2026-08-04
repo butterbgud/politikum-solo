@@ -1811,6 +1811,18 @@ export const PolitikumGame = {
       recalcPassives(G);
     },
 
+    persona7Skip: ({ G, ctx, playerID }: any) => {
+      const pend: any = (G as any).pending;
+      if (!pend || pend.kind !== 'persona_7_swap_two_in_coalition') return INVALID_MOVE;
+      if (String(pend.playerId) !== String(playerID)) return INVALID_MOVE;
+      if (String(ctx?.currentPlayer || '') !== String(playerID)) return INVALID_MOVE;
+
+      const me = (G.players || []).find((pp: any) => String(pp.id) === String(playerID));
+      G.log.push(`${ruYou(me?.name || playerID)} пропустил способность Каспарова.`);
+      (G as any).pending = null;
+      recalcPassives(G);
+    },
+
     // Persona 8: swap Lazerson (p8) with the just-played persona (during cancel_persona response window)
     persona8SwapWithPlayedPersona: ({ G, playerID }: any) => {
       const r: any = (G as any).response;
