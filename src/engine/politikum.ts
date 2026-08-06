@@ -3056,8 +3056,9 @@ export const PolitikumGame = {
             return;
           }
 
-          // persona_3 choice: bots only discard an opponent's left-wing persona;
-          // if none is available they take option B instead of hurting themselves.
+          // persona_3 choice: bots discard an opponent's left-wing persona;
+          // if they are the only player with one, skip rather than paying to
+          // hurt their own coalition.
           if (pend.kind === 'persona_3_choice' && String(pend.playerId) === String(p.id)) {
             try {
               const owners = (G.players || []).filter((pp: any) => String(pp.id) !== String(p.id) && (pp.coalition || []).some((c: any) => c.type === 'persona' && Array.isArray(c.tags) && c.tags.includes('faction:leftwing') && !c.shielded));
@@ -3070,21 +3071,8 @@ export const PolitikumGame = {
                   G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): сбросил ${drop?.name || drop?.id} (левые) у ${owner.name}.`);
                 }
               } else {
-                let affected = 0;
-                for (const pp of (G.players || [])) {
-                  for (const c of (pp.coalition || [])) {
-                    if (c.type !== 'persona') continue;
-                    if (!Array.isArray(c.tags) || !c.tags.includes('faction:leftwing')) continue;
-                    applyTokenDelta(G, c, -1);
-                    affected++;
-                  }
-                }
-                G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): дал -1 ${affected} левым персонажам.`);
+                G.log.push(`${ruYou(p.name)} (${pend.sourceCardId}): пропустил способность — у соперников нет левых персонажей.`);
               }
-            } catch {}
-            try {
-              const self: any = (p.coalition || []).find((c: any) => baseId(String(c.id)) === 'persona_3');
-              if (self) applyTokenDelta(G, self, -1);
             } catch {}
             (G as any).pending = null;
             recalcPassives(G);
