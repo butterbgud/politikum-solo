@@ -11,6 +11,26 @@ const UI = {
   ru: { rivals: 'Соперники', start: 'Начать локальную игру', intro: 'Всё состояние живёт в браузере. Никаких аккаунтов, API или сервера.', salon: 'Политический салон', yourTurn: 'Ваш ход', thinking: 'думает', deck: 'карт в колоде', newGame: 'Новая игра', log: 'Хроника', you: 'Вы', draw: 'Взять карту', secondDraw: 'Взять вторую · конец хода', end: 'Конец хода', auto: 'Разрешить выбор', choose: 'Выбрать', close: 'Нажмите вне карты, чтобы закрыть', ended: 'Партия окончена', won: 'Вы победили', wins: 'побеждает', again: 'Ещё одну', reportBug: 'Сообщить об ошибке', reportTitle: 'Сообщить об ошибке', reportHint: 'К отчёту будет приложена последняя история партии.', reportPlaceholder: 'Что произошло? (необязательно)', challenge: 'Решите пример, чтобы отправить отчёт:', challengeWrong: 'Неверный ответ. Олег, придется поднапрячься!=) Отчёт не отправлен.', send: 'Отправить', cancel: 'Отмена', sent: 'Отчёт отправлен. Спасибо!', failed: 'Не удалось отправить отчёт.' },
   en: { rivals: 'Opponents', start: 'Start local game', intro: 'Everything lives in this browser. No accounts, APIs, or server.', salon: 'Political Salon', yourTurn: 'Your turn', thinking: 'is thinking', deck: 'cards in deck', you: 'You', draw: 'Draw card', secondDraw: 'Draw second · end turn', end: 'End turn', auto: 'Auto-pick', choose: 'Choose', close: 'Tap outside the card to close', ended: 'Game over', won: 'You win', wins: 'wins', again: 'Play again', reportBug: 'Report bug', reportTitle: 'Report a bug', reportHint: 'The recent game history will be attached.', reportPlaceholder: 'What happened? (optional)', challenge: 'Solve this to send the report:', challengeWrong: 'Incorrect answer. The report was not sent.', send: 'Send report', cancel: 'Cancel', sent: 'Report sent. Thank you!', failed: 'Could not send the report.' },
 };
+const QUICK_RULES = {
+  ru: {
+    title: 'Краткие правила',
+    items: [
+      'В начале хода возьмите карту из колоды, затем выберите одну карту на Перекрёстке.',
+      'Разыгрывайте карты из руки в свою или чужую коалицию. Нажимайте на карту, чтобы увидеть её эффект.',
+      'Некоторые способности требуют выбора или дают сопернику окно для ответа — завершите его до конца хода.',
+      'Ваша цель — набрать больше победных очков. Хроника слева показывает, что уже произошло.',
+    ],
+  },
+  en: {
+    title: 'Quick rules',
+    items: [
+      'At the start of your turn, draw from the deck, then choose one card from the Crossroads.',
+      'Play cards from your hand into your own or an opponent’s coalition. Click a card to inspect its effect.',
+      'Some abilities require a choice or give opponents a response window—finish it before ending the turn.',
+      'Your goal is to score the most victory points. The Chronicle shows what has already happened.',
+    ],
+  },
+};
 const cardImage = (card, language) => language === 'en' ? card.img?.replace('/cards/', '/cards/eng/') : card.img;
 const makeBugChallenge = () => {
   const left = 10 + Math.floor(Math.random() * 90);
@@ -223,6 +243,7 @@ export default function App() {
   const [language, setLanguage] = useState('ru');
   const [responseTime, setResponseTime] = useState(5);
   const [bugOpen, setBugOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [bugText, setBugText] = useState('');
   const [bugStatus, setBugStatus] = useState('');
   const [bugAnswer, setBugAnswer] = useState('');
@@ -472,7 +493,8 @@ export default function App() {
   const persona11Targeting = G.pending?.kind === 'persona_11_pick_opponent_persona' && String(G.pending.playerId) === '0' && !persona11Blocked;
   return <main className="app">
     {arnoNotice && <div className="arno-notice" role="status" aria-live="polite">{arnoNotice}</div>}
-    <header><div className="brand"><p>POLITIKUM · SOLO</p><small className="version">#{BUILD_VERSION}</small><div className="header-actions"><button className="log-toggle" title={language === 'en' ? 'Toggle history' : 'Показать/скрыть хронику'} aria-label={language === 'en' ? 'Toggle history' : 'Показать/скрыть хронику'} onClick={() => setLogOpen((open) => !open)}>{language === 'en' ? 'L' : 'Л'}</button><button className="report-button" title={ui.reportBug} aria-label={ui.reportBug} onClick={openBug}><img src="/assets/report-bug.jpg" alt="" /></button><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button></div></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div></header>
+    <header><div className="brand"><p>POLITIKUM · SOLO</p><small className="version">#{BUILD_VERSION}</small><div className="header-actions"><button className="log-toggle" title={language === 'en' ? 'Toggle history' : 'Показать/скрыть хронику'} aria-label={language === 'en' ? 'Toggle history' : 'Показать/скрыть хронику'} onClick={() => setLogOpen((open) => !open)}>{language === 'en' ? 'L' : 'Л'}</button><button className="rules-toggle" title={QUICK_RULES[language].title} aria-label={QUICK_RULES[language].title} onClick={() => setRulesOpen((open) => !open)}>?</button><button className="report-button" title={ui.reportBug} aria-label={ui.reportBug} onClick={openBug}><img src="/assets/report-bug.jpg" alt="" /></button><button disabled={!active || !!G.pending || !!G.response || G.hasPlayed || Number(G.drawsThisTurn || 0) >= 2} onClick={() => client.moves.drawCard()}>{Number(G.drawsThisTurn || 0) === 1 ? ui.secondDraw : ui.draw}</button><button disabled={!active || !!G.pending || !!G.response || !G.hasDrawn || !G.hasPlayed} onClick={() => client.moves.endTurn()}>{ui.end}</button></div></div><div className="turn"><b>{active ? ui.yourTurn : `${G.players.find((p) => p.id === String(ctx?.currentPlayer))?.name || 'Bot'} ${ui.thinking}`}</b><small>{G.deck.length} {ui.deck}</small></div></header>
+    {rulesOpen && <div className="quick-rules-modal" role="dialog" aria-label={QUICK_RULES[language].title} onClick={() => setRulesOpen(false)}><section onClick={(event) => event.stopPropagation()}><button className="quick-rules-close" onClick={() => setRulesOpen(false)} aria-label={language === 'en' ? 'Close rules' : 'Закрыть правила'}>×</button><h2>{QUICK_RULES[language].title}</h2><ul>{QUICK_RULES[language].items.map((item) => <li key={item}>{item}</li>)}</ul></section></div>}
     {showPendingPrompt && <div className="prompt">{pendingText(G.pending, language)}</div>}
     {G.pending?.kind === 'persona_9_choose_opponent' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker persona45-choice"><b>{language === 'en' ? 'Ponomaryov — choose an opponent' : 'Пономарёв — выберите соперника'}</b><small>{language === 'en' ? 'Ponomaryov will be added to that coalition. Current score:' : 'Пономарёв войдёт в эту коалицию. Текущий счёт:'}</small><div className="persona45-opponents">{G.players.filter((player) => player.active && player.id !== '0').map((player) => <button key={player.id} onClick={() => client.moves.playPersona(G.pending.sourceCardId, undefined, 'right', player.id)}><strong>{player.name}</strong><span>{score(player)} VP</span></button>)}</div></section></div>}
     {G.pending?.kind === 'persona_13_pick_target' && String(G.pending.playerId) === '0' && <div className="discard-picker-modal"><section className="discard-picker persona45-choice"><b>{language === 'en' ? 'Venediktov — choose a persona to receive −1' : 'Венедиктов — выберите персону для −1'}</b><small>{language === 'en' ? 'The turn is paused until you choose.' : 'Ход приостановлен до вашего выбора.'}</small><div className="fan">{(G.players.find((player) => String(player.id) === String(G.pending.attackerId))?.coalition || []).filter((card) => card.type === 'persona' && baseId(card.id) !== 'persona_31' && !card.shielded).map((card) => <Card card={card} language={language} key={card.id} onClick={() => client.moves.persona13PickTarget(G.pending.attackerId, card.id)} onPreview={(picked, action) => setPreview({ card: picked, action })} />)}</div></section></div>}

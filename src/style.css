@@ -35,9 +35,15 @@
 .persona45-opponents button { display: flex; justify-content: space-between; align-items: center; gap: 20px; min-width: min(420px, 82vw); padding: 13px 16px; border: 1px solid #d6a157; color: #f9e7c5; background: #251719; cursor: pointer; text-align: left; }
 .persona45-opponents button:hover { background: #4a2926; border-color: #f0c779; }
 .persona45-opponents span { color: #d8b992; font: 12px 'DM Mono'; white-space: nowrap; }
-.log-toggle, .report-button { width: 44px; height: 44px; padding: 0 !important; display: grid; place-items: center; overflow: hidden; }
+.log-toggle, .rules-toggle, .report-button { width: 44px; height: 44px; padding: 0 !important; display: grid; place-items: center; overflow: hidden; }
+.rules-toggle { border-color: #b28b5e !important; color: #f4d79f !important; background: #30201d !important; }
 .persona11-picker { width: min(760px, calc(100% - 24px)); max-height: min(720px, calc(100dvh - 24px)); padding: 16px; text-align: center; }.persona11-picker > small { display: block; max-width: 520px; margin: 8px auto 0; color: #d8b992; }.persona11-targets { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; max-height: min(500px, 62dvh); padding: 18px 8px 8px; overflow: auto; }.persona11-targets .card-shell { flex: 0 0 90px; }.persona11-targets .card { width: 90px; margin-right: 0; }.persona11-targets .card:hover { transform: translateY(-8px) scale(1.08); }
 .report-button img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.quick-rules-modal { position: fixed; z-index: 75; inset: 0; display: grid; place-items: center; padding: 18px; background: #080608d9; }
+.quick-rules-modal section { position: relative; width: min(560px, 100%); padding: 26px 28px; border: 1px solid #d6a157; background: #261718; box-shadow: 0 18px 60px #000; color: #f6ead3; }
+.quick-rules-modal h2 { margin: 0 0 16px; color: #f4d79f; }
+.quick-rules-modal ul { display: grid; gap: 12px; margin: 0; padding-left: 22px; color: #d1b18a; line-height: 1.45; }
+.quick-rules-close { position: absolute; top: 8px; right: 10px; border: 0; color: #f6ead3; background: transparent; font-size: 24px; cursor: pointer; }
 
 /* Reserve the hidden overlap width so the final coalition card is never clipped. */
 .coalition { padding-right: 78px; }
